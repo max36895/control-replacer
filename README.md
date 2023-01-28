@@ -18,6 +18,7 @@ node replacer.js config.json
           "name": "Tumbler",
           "newName": "NewTumbler",
         }]
+  }]
 }
 ```
 
@@ -32,6 +33,7 @@ node replacer.js config.json
           "newName": "",
           "newModuleName": "Tumbler"
         }]
+  }]
 }
  ```
 
