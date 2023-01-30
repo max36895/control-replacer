@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const childProcess = require('child_process');
 let errors = [];
 const KB = 1024;
 const MB = KB * 1024;
@@ -102,7 +103,7 @@ function importParse(str, controlName, moduleName) {
                                 }
                             }
                         } else if (val[i] === '*') {
-                            // Если записали таким образом, то скорей всего хотят импортировать все
+                            // Если записали таким образом, то скорей всего хотят импортировать все,
                             // но в таком случае может возникнуть проблема когда контрол превращается в модуль
                             if (val[i + 1] === 'as') {
                                 path.control = controlName;
@@ -113,7 +114,7 @@ function importParse(str, controlName, moduleName) {
                             paths.push(path);
                         }
                     }
-                })
+                });
             }
         });
         return paths;
@@ -124,7 +125,7 @@ function importParse(str, controlName, moduleName) {
 function addedInImport(str, match, importReplacer) {
     if (match.length) {
         let value = str;
-        let updateImport = match[0][1].split(',');
+        const updateImport = match[0][1].split(',');
         let startSeparator = '{';
         let endSeparator = '}';
         for (let i = 0; i < updateImport.length; i++) {
@@ -152,6 +153,7 @@ function replaceImport(str, importReplacer, config) {
     }
     let value = str;
     const match = getImportMath(config.newModuleName, str);
+
     if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
         value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')),
             '\'' + (config.newModule || config.newModuleName) + '\'');
@@ -182,7 +184,7 @@ function replaceImport(str, importReplacer, config) {
                     newImport += `;\nimport {${importReplacer.control}${importReplacer.control !== importReplacer.name ? (' as ' + importReplacer.name) : ''}} from '${config.newModuleName}';`
                 }
                 value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')), newImport);
-
+                // Если накосячили немного с импортом, то удаляем лишнее
                 value = value.replace(';;', ';');
             }
         } else {
@@ -196,17 +198,17 @@ function replaceImport(str, importReplacer, config) {
     }
     let emptyImportMatch = getImportMath(config.moduleName, value);
     if (emptyImportMatch.length) {
-        const emptyValue = emptyImportMatch[0][1].replace(/\n/g, '').trim()
+        const emptyValue = emptyImportMatch[0][1].replace(/\n/g, '').trim();
         if (emptyValue === '' || emptyValue === '{}') {
             value = value.replace(emptyImportMatch[0][0] + '\n', '');
         }
     }
 
-    return value
+    return value;
 }
 
 function importReplacer(str, config) {
-    const {controlName, newControlName, moduleName, newModuleName} = config;
+    const {controlName, newControlName, moduleName} = config;
     const importsReplacer = importParse(str, controlName, moduleName);
     if (importsReplacer) {
         let value = str;
@@ -216,14 +218,7 @@ function importReplacer(str, config) {
                 reg = (new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g'));
             }
             if (reg.test(str)) {
-                value = replaceImport(value, importReplacer, {
-                    controlName,
-                    newControlName,
-                    moduleName,
-                    newModuleName
-                })
-                // Ищем именно в кавычках, иначе могут быть проблемы при замене в тексте + логично что все должно быть в них
-                //value = value.replace((new RegExp('("|\')' + moduleName + '("|\')')), '\'' + newModuleName + '\'')
+                value = replaceImport(value, importReplacer, config);
                 if (importReplacer.name) {
                     if (newControlName) {
                         if (importReplacer.name === importReplacer.control) {
@@ -245,7 +240,7 @@ function importReplacer(str, config) {
                     value = value.replace((new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g')), importReplacer.lib + '.' + newControlName)
                 }
             }
-        })
+        });
         return value;
     }
     return str;
@@ -273,7 +268,7 @@ function textReplacer(str, config) {
             lib: '.',
             control: '.'
         }
-    ]
+    ];
     let newName = newControlName;
     if (newName === '') {
         newName = newPath.at(-1);
@@ -294,68 +289,85 @@ function replaceText(str, config) {
     return value;
 }
 
+const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_artifacts'];
+
 // ===== сам скрипт
 function script(param, path) {
     const dirs = getDirs(path);
     dirs.forEach((dir) => {
         const newPath = path + '/' + dir;
+        if (EXCLUDE_DIRS.includes(dir)) {
+            return;
+        }
         if (isDir(newPath)) {
             script(param, newPath)
         } else {
-            const size = fileSize(newPath, 'mb')
+            // На случай если нет прав на чтение или запись в директорию
+            try {
+                const size = fileSize(newPath, 'mb')
 
-            if (size < (param.maxFileSize)) {
-                let fileContent = fread(newPath);
-                let newFileContent = fileContent;
-                param.replaces.forEach((replace) => {
-                    const moduleName = replace.module;
-                    replace.controls.forEach((control) => {
-                        const controlName = control.name;
-                        if (control.newName || control.newModuleName) {
-                            let newControlName = control.newName;
-                            if (typeof newControlName === 'undefined') {
-                                newControlName = controlName;
-                            }
-                            let newModuleName = control.newModuleName;
-                            if (typeof newModuleName === 'undefined') {
-                                newModuleName = moduleName;
-                            }
-                            newFileContent = replaceText(newFileContent, {
-                                controlName, newControlName,
-                                moduleName, newModuleName,
-                                newModule: param.newModule,
-                                thisContext: newPath
-                            });
-                        }
-                    })
-                });
-                if (fileContent !== newFileContent) {
-                    fwrite(newPath, newFileContent);
-                    console.log(`Обновляю файл ${newPath}`);
-                } else {
-                    let isUpdated = false;
+                if (size < (param.maxFileSize)) {
+                    const fileContent = fread(newPath);
+                    let newFileContent = fileContent;
                     param.replaces.forEach((replace) => {
-                        if (fileContent.includes(replace.module)) {
-                            isUpdated = true;
-                        }
-                    })
-                    if (isUpdated) {
-                        console.log(`В файле ${newPath}" найдены вхождения, но скрипт не смог их обработать!`);
-                        errors.push({
-                            fileName: newPath,
-                            comment: 'Найдены вхождения, но скрипт не смог ничего сделать с ними',
-                            date: (new Date())
+                        const moduleName = replace.module;
+                        replace.controls.forEach((control) => {
+                            const controlName = control.name;
+                            if (control.newName || control.newModuleName) {
+                                let newControlName = control.newName;
+                                if (typeof newControlName === 'undefined') {
+                                    newControlName = controlName;
+                                }
+                                let newModuleName = control.newModuleName;
+                                if (typeof newModuleName === 'undefined') {
+                                    newModuleName = moduleName;
+                                }
+                                newModuleName = param.newModule || newModuleName;
+                                newFileContent = replaceText(newFileContent, {
+                                    controlName, newControlName,
+                                    moduleName, newModuleName,
+                                    newModule: param.newModule,
+                                    thisContext: newPath
+                                });
+                            }
                         });
+                    });
+                    if (fileContent !== newFileContent) {
+                        fwrite(newPath, newFileContent);
+                        console.log(`Обновляю файл ${newPath}`);
                     } else {
-                        //console.log(`- ${newPath} нечего править`);
+                        let isUpdated = false;
+                        // Примитивная проверка на поиск вхождений. Возможно потом стоит либо забить, либо сделать лучше
+                        param.replaces.forEach((replace) => {
+                            if (fileContent.includes(replace.module)) {
+                                isUpdated = true;
+                            }
+                        })
+                        if (isUpdated) {
+                            // Возможно стоит заигнорить просто и ничего не выводить
+                            console.log(`В файле ${newPath}" найдены вхождения, но скрипт не смог их обработать!`);
+                            errors.push({
+                                fileName: newPath,
+                                comment: 'Найдены вхождения, но скрипт не смог ничего сделать с ними',
+                                date: (new Date())
+                            });
+                        } else {
+                            //console.log(`- ${newPath} нечего править`);
+                        }
                     }
+                } else {
+                    console.error(`Файл "${newPath}" много весит(${size}MB). Пропускаю его!`);
+                    errors.push({
+                        fileName: newPath,
+                        comment: `Файл много весит(${size}MB). Пропускаю его`,
+                        date: (new Date())
+                    });
                 }
-            } else {
-                console.error(`Файл "${newPath}" слишком много весит(${size}MB). Пропускаю его!`);
+            } catch (e) {
                 errors.push({
+                    date: (new Date()),
                     fileName: newPath,
-                    comment: `Файл много весит(${size}MB). Для экономии ресурсов пропускаю его`,
-                    date: (new Date())
+                    comment: e.message
                 });
             }
         }
@@ -451,8 +463,33 @@ function getScriptParam() {
 }
 
 // для тестов сделать нормально когда-то
-function test(params) {
-    param = getCorrectParam(params);
+function test() {
+    const params = {
+        "path": ".\\test",
+        "replaces": [
+            {
+                "module": "Controls/toggle",
+                "controls": [
+                    { // Перемещаю контрол в новый модуль
+                        "name": "Toggle",
+                        "newName": "",
+                        "newModuleName": "Controls/Toggle"
+                    },
+                    { // Переименовываю контрол, и перемещаю в новый модуль
+                        "name": "Tumbler",
+                        "newName": "View",
+                        "newModuleName": "Controls/Tumbler"
+                    },
+                    { // переименовываю только контрол
+                        "name": "BigSeparator",
+                        "newName": "MoreButton"
+                    }
+                ],
+                "newModule": ""
+            }
+        ]
+    };
+    const param = getCorrectParam(params);
     const tests = [
         {
             start: `import {Toggle} from 'Controls/toggle'`,
@@ -573,25 +610,60 @@ import {Test, default as Toggle} from 'Controls/Toggle';
 
 }
 
+// Если скрипт по полной налажал, то даем возможность откатить все правки
+const REP_FILES = ['README.md', 'package.json', '.gitignore'];
+
+function fuck(path) {
+    const dirs = getDirs(path);
+    let isRep = false;
+    dirs.forEach(dir => {
+        if (REP_FILES.includes(dir)) {
+            isRep = true;
+        }
+    })
+    if (isRep) {
+        childProcess.execSync(`cd ${path} && git reset --hard`).toString();
+        return;
+    } else {
+        dirs.forEach((dir) => {
+            const newPath = path + '/' + dir;
+            if (EXCLUDE_DIRS.includes(dir)) {
+                return;
+            }
+            if (isDir(newPath)) {
+                fuck(newPath)
+            }
+        });
+    }
+}
+
+// console
 const argv = process.argv;
 
-let param = {};
 if (argv[2]) {
     if (argv[2].indexOf('.json') !== -1) {
         // на всякий случай вдруг кто-то упоролся
         if (isFile(argv[2])) {
-            param = JSON.parse(fread(argv[2]));
+            const param = JSON.parse(fread(argv[2]));
             if (param.path) {
-                if (argv[3] !== 'test') {
-                    run(param);
-                } else {
-                    test(param);
-                }
+                run(param);
             } else {
                 getScriptParam();
             }
         } else {
             console.error('Передан не корректный файл с конфигурацией');
+        }
+    } else if (argv[2] === 'test') {
+        test();
+    } else if (argv[2] === 'fuck') {
+        // на случай если скрипт по полной облажался
+        const param = JSON.parse(fread(argv[3]));
+        if (param.path) {
+            console.log('=== start ===');
+            fuck(param.path);
+            console.log('==== end ====');
+        } else {
+            console.error('Укажите json файл для отката. В файле должно присутствовать поле path');
         }
     } else {
         console.error('Укажите json файл с конфигурацией');
