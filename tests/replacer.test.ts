@@ -1,7 +1,8 @@
 import {Replacer} from "../src/modules/Replacer";
 import {Script} from "../src/modules/Script";
+import {IParam, IReplace, IReplaceOpt} from "../src/interfaces/IConfig";
 
-const tests = [
+const replaceControl = [
     {
         name: 'control to module',
         start: `import {Toggle} from 'Controls/toggle'`,
@@ -128,10 +129,55 @@ import {Async} from 'Controls/Async';
     }
 ];
 
+const replaceOptions = [
+    {
+        name: 'rename option name for react',
+        start: `import {Toggle} from 'Controls/toggle';
+            return <Toggle myClass="test"></Toggle>`,
+        end: `import {Toggle} from 'Controls/toggle';
+            return <Toggle className="test"></Toggle>`
+    },
+    {
+        name: 'rename option name for react and many opt',
+        start: `import {Toggle} from 'Controls/toggle';
+            return <Toggle value={false} style="color: red" myClass="test" onValueChanged={() => {...}}></Toggle>`,
+        end: `import {Toggle} from 'Controls/toggle';
+            return <Toggle value={false} style="color: red" className="test" onValueChanged={() => {...}}></Toggle>`
+    },
+    {
+        name: 'rename option name for react. many opt and rename control',
+        start: `import {Toggle as View} from 'Controls/toggle';
+            return <View value={false} style="color: red" myClass="test" onValueChanged={() => {...}}></View>`,
+        end: `import {Toggle as View} from 'Controls/toggle';
+            return <View value={false} style="color: red" className="test" onValueChanged={() => {...}}></View>`
+    },
+    {
+        name: 'rename option name for wml',
+        start: `<Controls.toggle:Toggle myClass="test"/>`,
+        end: `<Controls.toggle:Toggle className="test"/>`
+    },
+    {
+        name: 'rename option name for wml and manu opt',
+        start: `<Controls.toggle:Toggle value={{false}} style="color: red" myClass="test" onValueChanged={()=>{...}}/>`,
+        end: `<Controls.toggle:Toggle value={{false}} style="color: red" className="test" onValueChanged={()=>{...}}/>`
+    },
+    {
+        name: 'rename option name for wml and manu opt and controls',
+        start: `<Controls.toggle:Toggle value={{false}} style="color: red" myClass="test" onValueChanged={()=>{...}}/>
+<Controls.checkbox:View myClass={'test'}/>
+<Controls.custom:Toggle myClass="Toggle"/>
+<Controls/toggle:Toggle myClass={()=>{}} value/>`,
+        end: `<Controls.toggle:Toggle value={{false}} style="color: red" className="test" onValueChanged={()=>{...}}/>
+<Controls.checkbox:View myClass={'test'}/>
+<Controls.custom:Toggle myClass="Toggle"/>
+<Controls/toggle:Toggle className={()=>{}} value/>`
+    },
+]
+
 describe('Replacer', () => {
-    describe('replacer test', () => {
+    describe('replacer control', () => {
         const replacer = new Replacer();
-        const param = Script.getCorrectParam({
+        const param: IParam<IReplace> = Script.getCorrectParam({
             "path": ".\\test",
             "replaces": [
                 {
@@ -163,9 +209,9 @@ describe('Replacer', () => {
                     ],
                 }
             ]
-        });
+        }) as IParam<IReplace>;
 
-        tests.forEach((test) => {
+        replaceControl.forEach((test) => {
             it(`replacer: ${test.name}`, () => {
                 let content = test.start;
                 param.replaces.forEach((replace) => {
@@ -181,7 +227,7 @@ describe('Replacer', () => {
                             if (typeof newModuleName === 'undefined') {
                                 newModuleName = moduleName;
                             }
-                            content = replacer.replace(content, {
+                            content = replacer.replaceControls(content, {
                                 controlName, newControlName,
                                 moduleName, newModuleName,
                                 newModule: replace.newModule,
@@ -194,6 +240,31 @@ describe('Replacer', () => {
             });
         });
     });
+
+    describe('replacer options', () => {
+        const replacer = new Replacer();
+        const param: IParam<IReplaceOpt> = Script.getCorrectParam({
+            path: ".\\test",
+            replaces:[
+                {
+                    thisOpt: 'myClass',
+                    newOpt: 'className',
+                    module: 'Controls/toggle',
+                    control: 'Toggle'
+                }
+            ],
+        }) as IParam<IReplaceOpt>;
+
+        replaceOptions.forEach((test) => {
+            it(`replacer: ${test.name}`, () => {
+                let content = test.start;
+                param.replaces.forEach((replace) => {
+                    content = replacer.replaceOptions(content,replace);
+                });
+                expect(content).toEqual(test.end);
+            });
+        });
+    })
 
     /* Не нужно до тех пор, пока не научимся превращать модуль в контрол
     describe('module to control', () => {

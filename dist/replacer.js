@@ -79,6 +79,24 @@ class FileUtils {
     }
 }
 
+const SEPARATORS = [
+    {
+        lib: '/',
+        control: ':'
+    },
+    {
+        lib: '/',
+        control: '/'
+    },
+    {
+        lib: '.',
+        control: ':'
+    },
+    {
+        lib: '.',
+        control: '.'
+    }
+];
 class Replacer {
     errors = [];
     static getImportMath(moduleName, str) {
@@ -261,39 +279,46 @@ class Replacer {
         const path = moduleName.split('/');
         const newPath = newModuleName.split('/');
         let value = str;
-        const separators = [
-            {
-                lib: '/',
-                control: ':'
-            },
-            {
-                lib: '/',
-                control: '/'
-            },
-            {
-                lib: '.',
-                control: ':'
-            },
-            {
-                lib: '.',
-                control: '.'
-            }
-        ];
         let newName = newControlName;
         if (newName === '') {
             newName = newPath.at(-1);
             newPath.pop();
         }
-        separators.forEach((separator) => {
+        SEPARATORS.forEach((separator) => {
             value = value.replace((new RegExp(path.join(separator.lib) + separator.control + controlName, 'g')), newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName);
         });
         return value;
     }
-    replace(str, config) {
+    replaceControls(str, config) {
         let value = str;
         value = this.importReplacer(value, config);
         value = this.textReplacer(value, config);
         return value;
+    }
+    replaceOptions(str, config) {
+        let value = str;
+        const importsReplacer = this.importParse(str, config.control, config.module);
+        if (importsReplacer) {
+            importsReplacer.forEach(importReplacer => {
+                if (importReplacer.name) {
+                    value = value.replace((new RegExp('(<\\b' + importReplacer.name + '\\b(?:\\n|[^>])+?)\\b'
+                        + config.thisOpt + '\\b((?:\\n|[^>])+?>)', 'g')), '$1' + config.newOpt + '$2');
+                }
+                else {
+                    value = value.replace((new RegExp('(<' + importReplacer.lib + '.' + importReplacer.control +
+                        '\\b(?:\\n|[^>])+?)\\b' + config.thisOpt + '\\b((?:\\n|[^>])+?>)')), '$1' + config.newOpt + '$2');
+                }
+            });
+        }
+        const path = config.module.split('/');
+        SEPARATORS.forEach((separator) => {
+            value = value.replace((new RegExp(('(' + path.join(separator.lib) + separator.control + config.control + '\\b(?:\\n|[^>])+?)\\b'
+                + config.thisOpt + '\\b((?:\\n|[^>])+?>)'), 'g')), '$1' + config.newOpt + '$2');
+        });
+        return value;
+    }
+    customReplace(str, config) {
+        return str.replace((new RegExp(config.reg, config.flag || 'g')), config.replace);
     }
     clearErrors() {
         this.errors = [];
@@ -307,7 +332,34 @@ const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_a
 class Script {
     replacer = new Replacer;
     errors = [];
-    script(param, path) {
+    _controlsReplace(replace, newFileContent, newPath) {
+        const moduleName = replace.module;
+        replace.controls.forEach((control) => {
+            const controlName = control.name;
+            if (control.newName || control.newModuleName) {
+                let newControlName = control.newName;
+                if (typeof newControlName === 'undefined') {
+                    newControlName = controlName;
+                }
+                let newModuleName = control.newModuleName;
+                if (typeof newModuleName === 'undefined') {
+                    newModuleName = moduleName;
+                }
+                newModuleName = replace.newModule || newModuleName;
+                newFileContent = this.replacer.replaceControls(newFileContent, {
+                    controlName, newControlName,
+                    moduleName, newModuleName,
+                    newModule: replace.newModule,
+                    thisContext: newPath
+                });
+            }
+        });
+        return newFileContent;
+    }
+    _optionsReplace(replace, newFileContent) {
+        return this.replacer.replaceOptions(newFileContent, replace);
+    }
+    script(param, path, type = 'controls') {
         const dirs = FileUtils.getDirs(path);
         dirs.forEach((dir) => {
             const newPath = path + '/' + dir;
@@ -324,48 +376,38 @@ class Script {
                         const fileContent = FileUtils.fread(newPath);
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
-                            const moduleName = replace.module;
-                            replace.controls.forEach((control) => {
-                                const controlName = control.name;
-                                if (control.newName || control.newModuleName) {
-                                    let newControlName = control.newName;
-                                    if (typeof newControlName === 'undefined') {
-                                        newControlName = controlName;
-                                    }
-                                    let newModuleName = control.newModuleName;
-                                    if (typeof newModuleName === 'undefined') {
-                                        newModuleName = moduleName;
-                                    }
-                                    newModuleName = replace.newModule || newModuleName;
-                                    newFileContent = this.replacer.replace(newFileContent, {
-                                        controlName, newControlName,
-                                        moduleName, newModuleName,
-                                        newModule: replace.newModule,
-                                        thisContext: newPath
-                                    });
-                                }
-                            });
+                            if (type === "controls") {
+                                newFileContent = this._controlsReplace(replace, newFileContent, newPath);
+                            }
+                            else if (type === 'options') {
+                                newFileContent = this._optionsReplace(replace, newFileContent);
+                            }
+                            else if (type === 'custom') {
+                                newFileContent = this.replacer.customReplace(newFileContent, replace);
+                            }
                         });
                         if (fileContent !== newFileContent) {
                             console.log(`Обновляю файл ${newPath}`);
                             FileUtils.fwrite(newPath, newFileContent);
                         }
                         else {
-                            let searchedModule = '';
-                            param.replaces.forEach((replace) => {
-                                if (fileContent.includes(replace.module)) {
-                                    searchedModule = replace.module;
-                                }
-                            });
-                            if (searchedModule) {
-                                console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
-                                this.errors.push({
-                                    fileName: newPath,
-                                    comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение',
-                                    date: (new Date())
+                            if (type === "controls") {
+                                let searchedModule = '';
+                                param.replaces.forEach((replace) => {
+                                    if (fileContent.includes(replace.module)) {
+                                        searchedModule = replace.module;
+                                    }
                                 });
-                            }
-                            else {
+                                if (searchedModule) {
+                                    console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
+                                    this.errors.push({
+                                        fileName: newPath,
+                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение',
+                                        date: (new Date())
+                                    });
+                                }
+                                else {
+                                }
                             }
                         }
                     }
@@ -404,13 +446,13 @@ class Script {
         FileUtils.fwrite((errorDir + '/' + 'logs.log'), errorContent, 'w');
         console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/logs.log`);
     }
-    run(param) {
+    run(param, type = 'controls') {
         console.log('script start');
         console.log('=================================================================');
         this.errors = [];
         this.replacer.clearErrors();
         const correctParam = Script.getCorrectParam(param);
-        this.script(correctParam, param.path);
+        this.script(correctParam, param.path, type);
         this.errors = [...this.errors, ...this.replacer.getErrors()];
         if (this.errors.length) {
             this.saveLog();
@@ -456,9 +498,17 @@ function resetGit(path) {
 
 const script = new Script();
 function getScriptParam() {
-    console.log();
+    console.log('Скрипт предназначен для автоматического переименовывание контролов и их опций.' +
+        ' Также предусмотрена возможность указать свое регулярное выражения для замены.');
+    console.log(' -\t config.json - преименовывание контролов или модулей');
+    console.log(' -\t replaceOpt config.json - переименовывание опций у контролов');
+    console.log(' -\t customReplace config.json - кастомная замена');
+    console.log(' -\t resetGit - откатывает изменения. Стоит использовать в том случае, если скрипт отработал не корректно.');
+    console.log(' -\t');
+}
+function getScriptControlParam() {
     console.log('######################################################################');
-    console.log('# Для корректной работы скрипта укажите файл настроек                #');
+    console.log('# Для корректной замены контролов укажите файл настроек              #');
     console.log('# Файл должен выглядеть следующим образом:                           #');
     console.log('# {                                                                  #');
     console.log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
@@ -476,7 +526,37 @@ function getScriptParam() {
     console.log('# newModule стоит использовать только в том случае, если             #');
     console.log('# перемещаются все контролы из модуля, иначе возможны ошибки         #');
     console.log('######################################################################');
-    console.log();
+}
+function getScriptOptionParam() {
+    console.log('######################################################################');
+    console.log('# Для корректной замены опций укажите файл настроек                  #');
+    console.log('# Файл должен выглядеть следующим образом:                           #');
+    console.log('# {                                                                  #');
+    console.log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    console.log('#      "replaces": [ // Массив модулей с контролами                  #');
+    console.log('#          "module": "Имя модуля"                                    #');
+    console.log('#          "control": "Имя контрола"                                 #');
+    console.log('#          "thisOpt": "Текущее имя опции"                            #');
+    console.log('#          "newOpt": "Новое имя опции"                               #');
+    console.log('#      ]                                                             #');
+    console.log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    console.log('# }                                                                  #');
+    console.log('######################################################################');
+}
+function getScriptCustomParam() {
+    console.log('######################################################################');
+    console.log('# Для корректной замены укажите файл настроек                        #');
+    console.log('# Файл должен выглядеть следующим образом:                           #');
+    console.log('# {                                                                  #');
+    console.log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    console.log('#      "replaces": [ // Массив модулей с контролами                  #');
+    console.log('#          "reg": "Регулярное выражение для замены"                  #');
+    console.log('#          "flag": "Флаг для регулярного выражения. По умолчанию g"  #');
+    console.log('#          "replace": "То как произведется замена"                   #');
+    console.log('#      ]                                                             #');
+    console.log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    console.log('# }                                                                  #');
+    console.log('######################################################################');
 }
 const argv = process.argv;
 if (argv[2]) {
@@ -487,27 +567,53 @@ if (argv[2]) {
                 script.run(param);
             }
             else {
-                getScriptParam();
+                getScriptControlParam();
             }
         }
         else {
             console.error('Передан не корректный файл с конфигурацией');
         }
     }
-    else if (argv[2] === 'resetGit') {
-        const param = JSON.parse(FileUtils.fread(argv[3]));
-        if (param.path) {
-            console.log('=== start ===');
-            resetGit(param.path);
-            console.log('==== end ====');
-        }
-        else {
-            console.error('Укажите json файл для отката изменений. В файле должно присутствовать поле path');
-        }
-    }
     else {
-        console.error('Укажите json файл с конфигурацией');
-        getScriptParam();
+        switch (argv[2]) {
+            case 'replaceOpt':
+            case 'customReplace':
+                if (argv[3].indexOf('.json') !== -1) {
+                    if (FileUtils.isFile(argv[3])) {
+                        const param = JSON.parse(FileUtils.fread(argv[3]));
+                        const type = argv[2] === 'replaceOpt' ? 'options' : 'custom';
+                        if (param.path) {
+                            script.run(param, type);
+                        }
+                        else {
+                            if (type === 'options') {
+                                getScriptOptionParam();
+                            }
+                            else {
+                                getScriptCustomParam();
+                            }
+                        }
+                    }
+                    else {
+                        console.error('Передан не корректный файл с конфигурацией');
+                    }
+                }
+                break;
+            case 'resetGit':
+                const param = JSON.parse(FileUtils.fread(argv[3]));
+                if (param.path) {
+                    console.log('=== start ===');
+                    resetGit(param.path);
+                    console.log('==== end ====');
+                }
+                else {
+                    console.error('Укажите json файл для отката изменений. В файле должно присутствовать поле path');
+                }
+                break;
+            default:
+                console.error('Укажите json файл с конфигурацией');
+                getScriptParam();
+        }
     }
 }
 else {

@@ -1,4 +1,4 @@
-import {IConfig, IError} from "../interfaces/IConfig";
+import { IConfig, ICustomReplace, IError, IReplaceOpt } from "../interfaces/IConfig";
 
 interface IImportReplacer {
     name: string;
@@ -8,6 +8,25 @@ interface IImportReplacer {
     importNames: string;
     importsList: string[];
 }
+
+const SEPARATORS = [
+    {
+        lib: '/',
+        control: ':'
+    },
+    {
+        lib: '/',
+        control: '/'
+    },
+    {
+        lib: '.',
+        control: ':'
+    },
+    {
+        lib: '.',
+        control: '.'
+    }
+];
 
 export class Replacer {
     errors: IError[] = [];
@@ -198,42 +217,58 @@ export class Replacer {
         const path = moduleName.split('/');
         const newPath: string[] = newModuleName.split('/');
         let value = str;
-        const separators = [
-            {
-                lib: '/',
-                control: ':'
-            },
-            {
-                lib: '/',
-                control: '/'
-            },
-            {
-                lib: '.',
-                control: ':'
-            },
-            {
-                lib: '.',
-                control: '.'
-            }
-        ];
         let newName = newControlName;
         if (newName === '') {
             newName = newPath.at(-1) as string;
             newPath.pop();
         }
 
-        separators.forEach((separator) => {
+        SEPARATORS.forEach((separator) => {
             value = value.replace((new RegExp(path.join(separator.lib) + separator.control + controlName, 'g')),
                 newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName);
         });
         return value;
     }
 
-    replace(str: string, config: IConfig): string {
+    replaceControls(str: string, config: IConfig): string {
         let value = str;
         value = this.importReplacer(value, config);
         value = this.textReplacer(value, config);
         return value;
+    }
+
+    replaceOptions(str: string, config: IReplaceOpt): string {
+        let value = str;
+        const importsReplacer = this.importParse(str, config.control, config.module);
+        if (importsReplacer) {
+            importsReplacer.forEach(importReplacer => {
+                if (importReplacer.name) {
+                    value = value.replace(
+                        (new RegExp('(<\\b' + importReplacer.name + '\\b(?:\\n|[^>])+?)\\b'
+                            + config.thisOpt + '\\b((?:\\n|[^>])+?>)', 'g')),
+                        '$1' + config.newOpt + '$2');
+                } else {
+                    value = value.replace(
+                        (new RegExp('(<' + importReplacer.lib + '.' + importReplacer.control +
+                            '\\b(?:\\n|[^>])+?)\\b' + config.thisOpt + '\\b((?:\\n|[^>])+?>)')),
+                        '$1' + config.newOpt + '$2');
+                }
+            });
+        }
+
+        const path = config.module.split('/');
+        SEPARATORS.forEach((separator) => {
+            value = value.replace(
+                (new RegExp(('(' + path.join(separator.lib) + separator.control + config.control + '\\b(?:\\n|[^>])+?)\\b'
+                    + config.thisOpt + '\\b((?:\\n|[^>])+?>)'), 'g')),
+                '$1' + config.newOpt + '$2');
+        });
+
+        return value;
+    }
+
+    customReplace(str: string, config: ICustomReplace): string {
+        return str.replace((new RegExp(config.reg, config.flag || 'g')), config.replace);
     }
 
     clearErrors(): void {

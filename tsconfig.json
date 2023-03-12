@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "module": "esnext",
-    "target": "es2022",
+    "target": "esnext",
     "lib": [
-      "es2022"
+      "esnext"
     ],
     "moduleResolution": "node",
     "removeComments": true,

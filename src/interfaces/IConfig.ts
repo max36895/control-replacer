@@ -4,15 +4,28 @@ export interface IControl {
     newModuleName?: string;
 }
 
+export interface ICustomReplace {
+    reg: string;
+    flag?: string;
+    replace: string;
+}
+
+export interface IReplaceOpt {
+    control: string;
+    module: string;
+    thisOpt: string;
+    newOpt: string;
+}
+
 export interface IReplace {
     module: string;
     controls: IControl[];
     newModule?: string;
 }
 
-export interface IParam {
+export interface IParam<R extends IReplace | IReplaceOpt | ICustomReplace = IReplace> {
     path: string;
-    replaces: IReplace[];
+    replaces: R[];
     maxFileSize?: number;
 }
 

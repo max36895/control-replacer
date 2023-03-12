@@ -1,5 +1,5 @@
-import {EXCLUDE_DIRS} from "./Script";
-import {FileUtils} from "./FileUtils";
+import { EXCLUDE_DIRS } from "./Script";
+import { FileUtils } from "./FileUtils";
 import * as childProcess from 'child_process';
 
 const REP_FILES = ['README.md', 'package.json', '.gitignore'];

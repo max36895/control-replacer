@@ -1,6 +1,8 @@
-import {FileUtils} from './FileUtils';
-import {Replacer} from './Replacer';
-import {IError, IParam} from "../interfaces/IConfig";
+import { FileUtils } from './FileUtils';
+import { Replacer } from './Replacer';
+import { ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
+
+export type TypeReplacer = 'controls' | 'options' | 'custom';
 
 export const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_artifacts'];
 
@@ -8,7 +10,37 @@ export class Script {
     private replacer: Replacer = new Replacer;
     private errors: IError[] = [];
 
-    private script(param: IParam, path: string) {
+    private _controlsReplace(replace: IReplace, newFileContent: string, newPath: string) {
+        const moduleName = replace.module;
+        replace.controls.forEach((control) => {
+            const controlName = control.name;
+            if (control.newName || control.newModuleName) {
+                let newControlName = control.newName;
+                if (typeof newControlName === 'undefined') {
+                    newControlName = controlName;
+                }
+                let newModuleName = control.newModuleName;
+                if (typeof newModuleName === 'undefined') {
+                    newModuleName = moduleName;
+                }
+                newModuleName = replace.newModule || newModuleName;
+
+                newFileContent = this.replacer.replaceControls(newFileContent, {
+                    controlName, newControlName,
+                    moduleName, newModuleName,
+                    newModule: replace.newModule,
+                    thisContext: newPath
+                });
+            }
+        });
+        return newFileContent;
+    }
+
+    private _optionsReplace(replace: IReplaceOpt, newFileContent: string) {
+        return this.replacer.replaceOptions(newFileContent, replace);
+    }
+
+    private script(param: IParam<IReplace | IReplaceOpt | ICustomReplace>, path: string, type: TypeReplacer = 'controls') {
         const dirs = FileUtils.getDirs(path);
         dirs.forEach((dir) => {
             const newPath = path + '/' + dir;
@@ -27,50 +59,37 @@ export class Script {
                         const fileContent = FileUtils.fread(newPath);
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
-                            const moduleName = replace.module;
-                            replace.controls.forEach((control) => {
-                                const controlName = control.name;
-                                if (control.newName || control.newModuleName) {
-                                    let newControlName = control.newName;
-                                    if (typeof newControlName === 'undefined') {
-                                        newControlName = controlName;
-                                    }
-                                    let newModuleName = control.newModuleName;
-                                    if (typeof newModuleName === 'undefined') {
-                                        newModuleName = moduleName;
-                                    }
-                                    newModuleName = replace.newModule || newModuleName;
-
-                                    newFileContent = this.replacer.replace(newFileContent, {
-                                        controlName, newControlName,
-                                        moduleName, newModuleName,
-                                        newModule: replace.newModule,
-                                        thisContext: newPath
-                                    });
-                                }
-                            });
+                            if (type === "controls") {
+                                newFileContent = this._controlsReplace(replace as IReplace, newFileContent, newPath)
+                            } else if (type === 'options') {
+                                newFileContent = this._optionsReplace(replace as IReplaceOpt, newFileContent);
+                            } else if (type === 'custom') {
+                                newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
+                            }
                         });
                         if (fileContent !== newFileContent) {
                             console.log(`Обновляю файл ${newPath}`);
                             FileUtils.fwrite(newPath, newFileContent);
                         } else {
-                            let searchedModule = '';
-                            // Примитивная проверка на поиск вхождений. Возможно потом стоит либо забить, либо сделать лучше
-                            param.replaces.forEach((replace) => {
-                                if (fileContent.includes(replace.module)) {
-                                    searchedModule = replace.module;
+                            if (type === "controls") {
+                                let searchedModule = '';
+                                // Примитивная проверка на поиск вхождений. Возможно потом стоит либо забить, либо сделать лучше
+                                (param.replaces as IReplace[]).forEach((replace) => {
+                                    if (fileContent.includes(replace.module)) {
+                                        searchedModule = replace.module;
+                                    }
+                                })
+                                if (searchedModule) {
+                                    // Возможно стоит заигнорить просто и ничего не выводить
+                                    console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
+                                    this.errors.push({
+                                        fileName: newPath,
+                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение',
+                                        date: (new Date())
+                                    });
+                                } else {
+                                    //console.log(`- ${newPath} нечего править`);
                                 }
-                            })
-                            if (searchedModule) {
-                                // Возможно стоит заигнорить просто и ничего не выводить
-                                console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
-                                this.errors.push({
-                                    fileName: newPath,
-                                    comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение',
-                                    date: (new Date())
-                                });
-                            } else {
-                                //console.log(`- ${newPath} нечего править`);
                             }
                         }
                     } else {
@@ -110,7 +129,7 @@ export class Script {
         console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/logs.log`);
     }
 
-    run(param: IParam) {
+    run(param: IParam<IReplace | IReplaceOpt | ICustomReplace>, type: TypeReplacer = 'controls') {
         console.log('script start');
         console.log('=================================================================');
         this.errors = [];
@@ -118,7 +137,7 @@ export class Script {
 
         const correctParam = Script.getCorrectParam(param);
 
-        this.script(correctParam, param.path);
+        this.script(correctParam, param.path, type);
         this.errors = [...this.errors, ...this.replacer.getErrors()];
         if (this.errors.length) {
             this.saveLog();
@@ -127,8 +146,8 @@ export class Script {
         console.log('script end');
     }
 
-    static getCorrectParam(param: IParam) {
-        const correctParam: IParam = {
+    static getCorrectParam(param: IParam<IReplace | IReplaceOpt | ICustomReplace>) {
+        const correctParam: IParam<IReplace | IReplaceOpt | ICustomReplace> = {
             path: param.path,
             replaces: param.replaces,
             maxFileSize: param.maxFileSize || 50
