@@ -112,11 +112,15 @@ if (argv[2]) {
                 break;
             case 'resetGit':
                 // на случай если скрипт по полной облажался
-                const param = JSON.parse(FileUtils.fread(argv[3]));
-                if (param.path) {
-                    console.log('=== start ===');
-                    resetGit(param.path);
-                    console.log('==== end ====');
+                if (argv[3]) {
+                    const param = JSON.parse(FileUtils.fread(argv[3]));
+                    if (param.path) {
+                        console.log('=== start ===');
+                        resetGit(param.path);
+                        console.log('==== end ====');
+                    } else {
+                        console.error('Укажите свойство path в конфигурации');
+                    }
                 } else {
                     console.error('Укажите json файл для отката изменений. В файле должно присутствовать поле path');
                 }

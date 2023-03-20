@@ -252,7 +252,7 @@ class Replacer {
                                 value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b/>', 'g')), newControlName + '/>');
                             }
                             else {
-                                value = value.replace((new RegExp('([^(\.|/|:)])\\b' + importReplacer.control + '\\b([^(\.|/|:)])')), '$1' + newControlName + '$2');
+                                value = value.replace((new RegExp('([^(.|/|:)])\\b' + importReplacer.control + '\\b([^(.|/|:)])')), '$1' + newControlName + '$2');
                             }
                         }
                         else {
@@ -387,7 +387,7 @@ class Script {
                             }
                         });
                         if (fileContent !== newFileContent) {
-                            console.log(`Обновляю файл ${newPath}`);
+                            console.log(`%c Обновляю файл ${newPath}`, 'color: green;');
                             FileUtils.fwrite(newPath, newFileContent);
                         }
                         else {
@@ -399,14 +399,11 @@ class Script {
                                     }
                                 });
                                 if (searchedModule) {
-                                    console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
                                     this.errors.push({
                                         fileName: newPath,
-                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение',
+                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение.',
                                         date: (new Date())
                                     });
-                                }
-                                else {
                                 }
                             }
                         }
@@ -426,6 +423,7 @@ class Script {
                         fileName: newPath,
                         comment: e.message
                     });
+                    console.error(e.message);
                 }
             }
         });
@@ -443,8 +441,9 @@ class Script {
             errorContent += '\n\tОписание: ' + error.comment;
             errorContent += '\n===========================================================================\n';
         });
-        FileUtils.fwrite((errorDir + '/' + 'logs.log'), errorContent, 'w');
-        console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/logs.log`);
+        const fileName = Date.now();
+        FileUtils.fwrite((`${errorDir}/${fileName}.log`), errorContent, 'w');
+        console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/${fileName}.log`);
     }
     run(param, type = 'controls') {
         console.log('script start');
@@ -600,18 +599,22 @@ if (argv[2]) {
                 }
                 break;
             case 'resetGit':
-                const param = JSON.parse(FileUtils.fread(argv[3]));
-                if (param.path) {
-                    console.log('=== start ===');
-                    resetGit(param.path);
-                    console.log('==== end ====');
+                if (argv[3]) {
+                    const param = JSON.parse(FileUtils.fread(argv[3]));
+                    if (param.path) {
+                        console.log('=== start ===');
+                        resetGit(param.path);
+                        console.log('==== end ====');
+                    }
+                    else {
+                        console.error('Укажите свойство path в конфигурации');
+                    }
                 }
                 else {
                     console.error('Укажите json файл для отката изменений. В файле должно присутствовать поле path');
                 }
                 break;
             default:
-                console.error('Укажите json файл с конфигурацией');
                 getScriptParam();
         }
     }

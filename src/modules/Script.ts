@@ -68,7 +68,7 @@ export class Script {
                             }
                         });
                         if (fileContent !== newFileContent) {
-                            console.log(`Обновляю файл ${newPath}`);
+                            console.log(`%c Обновляю файл ${newPath}`, 'color: green;');
                             FileUtils.fwrite(newPath, newFileContent);
                         } else {
                             if (type === "controls") {
@@ -80,15 +80,14 @@ export class Script {
                                     }
                                 })
                                 if (searchedModule) {
-                                    // Возможно стоит заигнорить просто и ничего не выводить
-                                    console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
+                                    // Пока заигнорил, так как выводятся ложные срабатывания, которые засоряют консоль
+                                    // Возможно стоит придумать более умный определитель
+                                    // console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
                                     this.errors.push({
                                         fileName: newPath,
-                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение',
+                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение.',
                                         date: (new Date())
                                     });
-                                } else {
-                                    //console.log(`- ${newPath} нечего править`);
                                 }
                             }
                         }
@@ -106,6 +105,7 @@ export class Script {
                         fileName: newPath,
                         comment: (e as Error).message
                     });
+                    console.error((e as Error).message);
                 }
             }
         });
@@ -124,9 +124,10 @@ export class Script {
             errorContent += '\n\tОписание: ' + error.comment;
             errorContent += '\n===========================================================================\n';
 
-        })
-        FileUtils.fwrite((errorDir + '/' + 'logs.log'), errorContent, 'w');
-        console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/logs.log`);
+        });
+        const fileName = Date.now();
+        FileUtils.fwrite((`${errorDir}/${fileName}.log`), errorContent, 'w');
+        console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/${fileName}.log`);
     }
 
     run(param: IParam<IReplace | IReplaceOpt | ICustomReplace>, type: TypeReplacer = 'controls') {

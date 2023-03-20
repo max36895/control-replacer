@@ -191,7 +191,7 @@ export class Replacer {
                                 value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b([^(/|\'|\")])', 'g')), newControlName + '$1');
                                 value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b/>', 'g')), newControlName + '/>');
                             } else {
-                                value = value.replace((new RegExp('([^(\.|/|:)])\\b' + importReplacer.control + '\\b([^(\.|/|:)])')), '$1' + newControlName + '$2');
+                                value = value.replace((new RegExp('([^(.|/|:)])\\b' + importReplacer.control + '\\b([^(.|/|:)])')), '$1' + newControlName + '$2');
                             }
                         } else {
                             const reg = (new RegExp('\\b' + importReplacer.control + '\\b'));
