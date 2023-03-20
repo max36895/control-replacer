@@ -1,6 +1,7 @@
 import { FileUtils } from './FileUtils';
 import { Replacer } from './Replacer';
 import { ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
+import { log, success, error, warning } from "./logger";
 
 export type TypeReplacer = 'controls' | 'options' | 'custom';
 
@@ -68,7 +69,7 @@ export class Script {
                             }
                         });
                         if (fileContent !== newFileContent) {
-                            console.log(`%c Обновляю файл ${newPath}`, 'color: green;');
+                            success(`Обновляю файл: ${newPath}`);
                             FileUtils.fwrite(newPath, newFileContent);
                         } else {
                             if (type === "controls") {
@@ -82,20 +83,20 @@ export class Script {
                                 if (searchedModule) {
                                     // Пока заигнорил, так как выводятся ложные срабатывания, которые засоряют консоль
                                     // Возможно стоит придумать более умный определитель
-                                    // console.log(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
+                                    // warning(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
                                     this.errors.push({
                                         fileName: newPath,
-                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение.',
+                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
                                         date: (new Date())
                                     });
                                 }
                             }
                         }
                     } else {
-                        console.error(`Файл "${newPath}" много весит(${size}MB). Пропускаю его!`);
+                        warning(`Файл "${newPath}" весит(${size}MB). Пропускаю его`);
                         this.errors.push({
                             fileName: newPath,
-                            comment: `Файл много весит(${size}MB).`,
+                            comment: `Файл весит(${size}MB).`,
                             date: (new Date())
                         });
                     }
@@ -105,7 +106,7 @@ export class Script {
                         fileName: newPath,
                         comment: (e as Error).message
                     });
-                    console.error((e as Error).message);
+                    error((e as Error).message);
                 }
             }
         });
@@ -127,12 +128,12 @@ export class Script {
         });
         const fileName = Date.now();
         FileUtils.fwrite((`${errorDir}/${fileName}.log`), errorContent, 'w');
-        console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/${fileName}.log`);
+        warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
     }
 
     run(param: IParam<IReplace | IReplaceOpt | ICustomReplace>, type: TypeReplacer = 'controls') {
-        console.log('script start');
-        console.log('=================================================================');
+        log('script start');
+        log('=================================================================');
         this.errors = [];
         this.replacer.clearErrors();
 
@@ -143,8 +144,8 @@ export class Script {
         if (this.errors.length) {
             this.saveLog();
         }
-        console.log('=================================================================')
-        console.log('script end');
+        log('=================================================================')
+        log('script end');
     }
 
     static getCorrectParam(param: IParam<IReplace | IReplaceOpt | ICustomReplace>) {

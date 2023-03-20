@@ -328,6 +328,19 @@ class Replacer {
     }
 }
 
+function log(str) {
+    console.log(str);
+}
+function success(str) {
+    console.log('\x1b[32m', str, '\x1b[0m');
+}
+function warning(str) {
+    console.log('\x1b[33m', str, '\x1b[0m');
+}
+function error(str) {
+    console.log('\x1b[31m', str, '\x1b[0m');
+}
+
 const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_artifacts'];
 class Script {
     replacer = new Replacer;
@@ -387,7 +400,7 @@ class Script {
                             }
                         });
                         if (fileContent !== newFileContent) {
-                            console.log(`%c Обновляю файл ${newPath}`, 'color: green;');
+                            success(`Обновляю файл: ${newPath}`);
                             FileUtils.fwrite(newPath, newFileContent);
                         }
                         else {
@@ -401,7 +414,7 @@ class Script {
                                 if (searchedModule) {
                                     this.errors.push({
                                         fileName: newPath,
-                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать с ними. Возможно можно проигнорировать это предупреждение.',
+                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
                                         date: (new Date())
                                     });
                                 }
@@ -409,10 +422,10 @@ class Script {
                         }
                     }
                     else {
-                        console.error(`Файл "${newPath}" много весит(${size}MB). Пропускаю его!`);
+                        warning(`Файл "${newPath}" весит(${size}MB). Пропускаю его`);
                         this.errors.push({
                             fileName: newPath,
-                            comment: `Файл много весит(${size}MB).`,
+                            comment: `Файл весит(${size}MB).`,
                             date: (new Date())
                         });
                     }
@@ -423,7 +436,7 @@ class Script {
                         fileName: newPath,
                         comment: e.message
                     });
-                    console.error(e.message);
+                    error(e.message);
                 }
             }
         });
@@ -443,11 +456,11 @@ class Script {
         });
         const fileName = Date.now();
         FileUtils.fwrite((`${errorDir}/${fileName}.log`), errorContent, 'w');
-        console.error(`При выполнении скрипта были обнаружены ошибки. Подробнее смотри в: ${errorDir}/${fileName}.log`);
+        warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
     }
     run(param, type = 'controls') {
-        console.log('script start');
-        console.log('=================================================================');
+        log('script start');
+        log('=================================================================');
         this.errors = [];
         this.replacer.clearErrors();
         const correctParam = Script.getCorrectParam(param);
@@ -456,8 +469,8 @@ class Script {
         if (this.errors.length) {
             this.saveLog();
         }
-        console.log('=================================================================');
-        console.log('script end');
+        log('=================================================================');
+        log('script end');
     }
     static getCorrectParam(param) {
         const correctParam = {
@@ -497,65 +510,67 @@ function resetGit(path) {
 
 const script = new Script();
 function getScriptParam() {
-    console.log('Скрипт предназначен для автоматического переименовывание контролов и их опций.' +
-        ' Также предусмотрена возможность указать свое регулярное выражения для замены.');
-    console.log(' -\t config.json - преименовывание контролов или модулей');
-    console.log(' -\t replaceOpt config.json - переименовывание опций у контролов');
-    console.log(' -\t customReplace config.json - кастомная замена');
-    console.log(' -\t resetGit - откатывает изменения. Стоит использовать в том случае, если скрипт отработал не корректно.');
-    console.log(' -\t');
+    log('');
+    log('Скрипт предназначен для автоматического переименовывание контролов и их опций.');
+    log('Также предусмотрена возможность указать свое регулярное выражения для замены.');
+    log('Поддерживаемые опции:');
+    log('\t- config.json - переименовывание контролов или модулей');
+    log('\t- replaceOpt config.json - переименовывание опций у контролов');
+    log('\t- customReplace config.json - кастомная замена');
+    log('\t- resetGit - откатывает изменения. Стоит использовать в том случае, если скрипт отработал ошибочно.');
+    log('');
 }
 function getScriptControlParam() {
-    console.log('######################################################################');
-    console.log('# Для корректной замены контролов укажите файл настроек              #');
-    console.log('# Файл должен выглядеть следующим образом:                           #');
-    console.log('# {                                                                  #');
-    console.log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
-    console.log('#      "replaces": [ // Массив модулей с контролами                  #');
-    console.log('#          "module": "Текущее имя модуля"                            #');
-    console.log('#          "newModule": "Новое имя модуля. Лучше не использовать"    #');
-    console.log('#          "controls": [// Массив с контролами                       #');
-    console.log('#              "name": "Текущее имя контрола"                        #');
-    console.log('#              "newName": "Новое имя контрола"                       #');
-    console.log('#              "newModuleName": "Новое имя модуля"                   #');
-    console.log('#          ]                                                         #');
-    console.log('#      ]                                                             #');
-    console.log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
-    console.log('# }                                                                  #');
-    console.log('# newModule стоит использовать только в том случае, если             #');
-    console.log('# перемещаются все контролы из модуля, иначе возможны ошибки         #');
-    console.log('######################################################################');
+    log('######################################################################');
+    log('# Для корректной замены контролов укажите файл настроек              #');
+    log('# Файл должен выглядеть следующим образом:                           #');
+    log('# {                                                                  #');
+    log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    log('#      "replaces": [ // Массив модулей с контролами                  #');
+    log('#          "module": "Текущее имя модуля"                            #');
+    log('#          "newModule": "Новое имя модуля. Лучше не использовать"    #');
+    log('#          "controls": [// Массив с контролами                       #');
+    log('#              "name": "Текущее имя контрола"                        #');
+    log('#              "newName": "Новое имя контрола"                       #');
+    log('#              "newModuleName": "Новое имя модуля"                   #');
+    log('#          ]                                                         #');
+    log('#      ]                                                             #');
+    log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    log('# }                                                                  #');
+    log('# newModule стоит использовать только в том случае, если             #');
+    log('# перемещаются все контролы из модуля, иначе возможны ошибки         #');
+    log('######################################################################');
 }
 function getScriptOptionParam() {
-    console.log('######################################################################');
-    console.log('# Для корректной замены опций укажите файл настроек                  #');
-    console.log('# Файл должен выглядеть следующим образом:                           #');
-    console.log('# {                                                                  #');
-    console.log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
-    console.log('#      "replaces": [ // Массив модулей с контролами                  #');
-    console.log('#          "module": "Имя модуля"                                    #');
-    console.log('#          "control": "Имя контрола"                                 #');
-    console.log('#          "thisOpt": "Текущее имя опции"                            #');
-    console.log('#          "newOpt": "Новое имя опции"                               #');
-    console.log('#      ]                                                             #');
-    console.log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
-    console.log('# }                                                                  #');
-    console.log('######################################################################');
+    log('######################################################################');
+    log('# Для корректной замены опций укажите файл настроек                  #');
+    log('# Файл должен выглядеть следующим образом:                           #');
+    log('# {                                                                  #');
+    log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    log('#      "replaces": [ // Массив модулей с контролами                  #');
+    log('#          "module": "Имя модуля"                                    #');
+    log('#          "control": "Имя контрола"                                 #');
+    log('#          "thisOpt": "Текущее имя опции"                            #');
+    log('#          "newOpt": "Новое имя опции"                               #');
+    log('#      ]                                                             #');
+    log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    log('# }                                                                  #');
+    log('######################################################################');
 }
 function getScriptCustomParam() {
-    console.log('######################################################################');
-    console.log('# Для корректной замены укажите файл настроек                        #');
-    console.log('# Файл должен выглядеть следующим образом:                           #');
-    console.log('# {                                                                  #');
-    console.log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
-    console.log('#      "replaces": [ // Массив модулей с контролами                  #');
-    console.log('#          "reg": "Регулярное выражение для замены"                  #');
-    console.log('#          "flag": "Флаг для регулярного выражения. По умолчанию g"  #');
-    console.log('#          "replace": "То как произведется замена"                   #');
-    console.log('#      ]                                                             #');
-    console.log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
-    console.log('# }                                                                  #');
-    console.log('######################################################################');
+    log('######################################################################');
+    log('# Для корректной замены укажите файл настроек                        #');
+    log('# Файл должен выглядеть следующим образом:                           #');
+    log('# {                                                                  #');
+    log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    log('#      "replaces": [ // Массив модулей с контролами                  #');
+    log('#          "reg": "Регулярное выражение для замены"                  #');
+    log('#          "flag": "Флаг для регулярного выражения. По умолчанию g"  #');
+    log('#          "replace": "То как производится замена"                   #');
+    log('#      ]                                                             #');
+    log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    log('# }                                                                  #');
+    log('######################################################################');
 }
 const argv = process.argv;
 if (argv[2]) {
@@ -570,7 +585,7 @@ if (argv[2]) {
             }
         }
         else {
-            console.error('Передан не корректный файл с конфигурацией');
+            error('Не удалось найти файл');
         }
     }
     else {
@@ -594,24 +609,32 @@ if (argv[2]) {
                         }
                     }
                     else {
-                        console.error('Передан не корректный файл с конфигурацией');
-                    }
-                }
-                break;
-            case 'resetGit':
-                if (argv[3]) {
-                    const param = JSON.parse(FileUtils.fread(argv[3]));
-                    if (param.path) {
-                        console.log('=== start ===');
-                        resetGit(param.path);
-                        console.log('==== end ====');
-                    }
-                    else {
-                        console.error('Укажите свойство path в конфигурации');
+                        error('Не удалось найти файл');
                     }
                 }
                 else {
-                    console.error('Укажите json файл для отката изменений. В файле должно присутствовать поле path');
+                    error('Не передан файл с конфигурацией');
+                }
+                break;
+            case 'resetGit':
+                if (argv[3].indexOf('.json') !== -1) {
+                    if (FileUtils.isFile(argv[3])) {
+                        const param = JSON.parse(FileUtils.fread(argv[3]));
+                        if (param.path) {
+                            log('=== start ===');
+                            resetGit(param.path);
+                            log('==== end ====');
+                        }
+                        else {
+                            error('Укажите свойство path в конфигурации');
+                        }
+                    }
+                    else {
+                        error('Не удалось найти файл');
+                    }
+                }
+                else {
+                    error('Не передан файл с конфигурацией');
                 }
                 break;
             default:
