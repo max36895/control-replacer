@@ -14,6 +14,7 @@ function getScriptParam() {
     log('Поддерживаемые опции:');
     log('\t- config.json - переименовывание контролов или модулей');
     log('\t- replaceOpt config.json - переименовывание опций у контролов');
+    log('\t- cssReplace config.json - переименовывание css переменных или классов');
     log('\t- customReplace config.json - кастомная замена');
     log('\t- resetGit - откатывает изменения. Стоит использовать в том случае, если скрипт отработал ошибочно.');
     log('');
@@ -58,6 +59,22 @@ function getScriptOptionParam() {
     log('######################################################################');
 }
 
+function getScriptCSSParam() {
+    log('######################################################################');
+    log('# Для корректной замены опций укажите файл настроек                  #');
+    log('# Файл должен выглядеть следующим образом:                           #');
+    log('# {                                                                  #');
+    log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    log('#      "replaces": [ // Массив модулей с контролами                  #');
+    log('#          "varName": "Текущее имя переменной или класса"            #');
+    log('#          "newVarName": "Новое имя переменной или класса"           #');
+    log('#          "isRemove": "Класс или переменная полностью удаляется"    #');
+    log('#      ]                                                             #');
+    log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    log('# }                                                                  #');
+    log('######################################################################');
+}
+
 function getScriptCustomParam() {
     log('######################################################################');
     log('# Для корректной замены укажите файл настроек                        #');
@@ -76,6 +93,15 @@ function getScriptCustomParam() {
 
 const argv = process.argv;
 
+function getType(value: string): TypeReplacer {
+    if (value === 'replaceOpt') {
+        return 'options'
+    } else if (value === 'customReplace') {
+        return 'custom';
+    }
+    return 'css';
+}
+
 if (argv[2]) {
     if (argv[2].indexOf('.json') !== -1) {
         if (FileUtils.isFile(argv[2])) {
@@ -92,17 +118,24 @@ if (argv[2]) {
         switch (argv[2]) {
             case 'replaceOpt':
             case 'customReplace':
+            case 'cssReplace':
                 if (argv[3].indexOf('.json') !== -1) {
                     if (FileUtils.isFile(argv[3])) {
                         const param: IParam<IReplaceOpt | ICustomReplace> = JSON.parse(FileUtils.fread(argv[3]));
-                        const type: TypeReplacer = argv[2] === 'replaceOpt' ? 'options' : 'custom'
+                        const type: TypeReplacer = getType(argv[2]);
                         if (param.path) {
                             script.run(param, type);
                         } else {
-                            if (type === 'options') {
-                                getScriptOptionParam();
-                            } else {
-                                getScriptCustomParam();
+                            switch (type) {
+                                case 'options':
+                                    getScriptOptionParam();
+                                    break;
+                                case 'custom':
+                                    getScriptCustomParam();
+                                    break;
+                                case 'css':
+                                    getScriptCSSParam();
+                                    break;
                             }
                         }
                     } else {

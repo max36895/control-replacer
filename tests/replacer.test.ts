@@ -1,6 +1,6 @@
-import {Replacer} from "../src/modules/Replacer";
-import {Script} from "../src/modules/Script";
-import {IParam, IReplace, IReplaceOpt} from "../src/interfaces/IConfig";
+import { Replacer } from "../src/modules/Replacer";
+import { Script } from "../src/modules/Script";
+import { IContext, ICSSReplace, IParam, IReplace, IReplaceOpt } from "../src/interfaces/IConfig";
 
 const replaceControl = [
     {
@@ -174,6 +174,75 @@ const replaceOptions = [
     },
 ]
 
+const replaceCSS = [
+    {
+        name: 'rename css var',
+        start: `--var1: 512;
+        height: var(--var1);`,
+        end: `--varNew: 512;
+        height: var(--varNew);`
+    },
+    {
+        name: 'rename css var in 1',
+        start: `--var1: 512;
+        width: var(--var11)
+        height: var(--var1);`,
+        end: `--varNew: 512;
+        width: var(--var11)
+        height: var(--varNew);`
+    },
+    {
+        name: 'remove css var',
+        start: `--remove: 512;
+        height: var(--remove);`,
+        end: `
+        height: var(--varNew);`
+    },
+    {
+        name: 'rename css class',
+        start: `.myClassName {
+            color: red
+        }
+        <div class="myClassName"></div>`,
+        end: `.myClassNameNew {
+            color: red
+        }
+        <div class="myClassNameNew"></div>`
+    },
+    {
+        name: 'rename css class in 1',
+        start: `.myClassName {
+            color: red
+        }
+        .myClassName_2 {
+            color: green;
+        }
+        <div class="myClassName myClassName_2"></div>`,
+        end: `.myClassNameNew {
+            color: red
+        }
+        .myClassName_2 {
+            color: green;
+        }
+        <div class="myClassNameNew myClassName_2"></div>`
+    },
+    {
+        name: 'remove css class',
+        start: `.removeClassName {
+            color: red
+        }
+        .noremoveClassName {
+            color: green;
+        }
+        <div class="removeClassName noremoveClassName"></div>`,
+        end: `
+        .noremoveClassName {
+            color: green;
+        }
+        <div class=" noremoveClassName"></div>`
+    }
+]
+
 describe('Replacer', () => {
     describe('replacer control', () => {
         const replacer = new Replacer();
@@ -245,7 +314,7 @@ describe('Replacer', () => {
         const replacer = new Replacer();
         const param: IParam<IReplaceOpt> = Script.getCorrectParam({
             path: ".\\test",
-            replaces:[
+            replaces: [
                 {
                     thisOpt: 'myClass',
                     newOpt: 'className',
@@ -259,7 +328,46 @@ describe('Replacer', () => {
             it(`replacer: ${test.name}`, () => {
                 let content = test.start;
                 param.replaces.forEach((replace) => {
-                    content = replacer.replaceOptions(content,replace);
+                    content = replacer.replaceOptions(content, replace);
+                });
+                expect(content).toEqual(test.end);
+            });
+        });
+    });
+
+    describe('replacer css', () => {
+        const replacer = new Replacer();
+        const param: IParam<ICSSReplace & IContext> = Script.getCorrectParam({
+            path: ".\\test",
+            replaces: [
+                {
+                    isRemove: false,
+                    varName: '--var1',
+                    newVarName: '--varNew'
+                },
+                {
+                    isRemove: true,
+                    varName: '--remove',
+                    newVarName: '--varNew'
+                },
+                {
+                    isRemove: false,
+                    varName: '.myClassName',
+                    newVarName: '.myClassNameNew'
+                },
+                {
+                    isRemove: true,
+                    varName: '.removeClassName',
+                    newVarName: ''
+                },
+            ],
+        }) as IParam<ICSSReplace & IContext>;
+
+        replaceCSS.forEach((test) => {
+            it(`replacer: ${test.name}`, () => {
+                let content = test.start;
+                param.replaces.forEach((replace) => {
+                    content = replacer.cssReplace(content, replace);
                 });
                 expect(content).toEqual(test.end);
             });

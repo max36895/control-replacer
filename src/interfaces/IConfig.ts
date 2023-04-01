@@ -1,3 +1,7 @@
+export interface IContext {
+    thisContext: string;
+}
+
 export interface IControl {
     name: string;
     newName?: string;
@@ -8,6 +12,12 @@ export interface ICustomReplace {
     reg: string;
     flag?: string;
     replace: string;
+}
+
+export interface ICSSReplace {
+    varName: string;
+    newVarName: string;
+    isRemove?: boolean;
 }
 
 export interface IReplaceOpt {
@@ -23,7 +33,7 @@ export interface IReplace {
     newModule?: string;
 }
 
-export interface IParam<R extends IReplace | IReplaceOpt | ICustomReplace = IReplace> {
+export interface IParam<R extends IReplace | IReplaceOpt | ICustomReplace | ICSSReplace = IReplace> {
     path: string;
     replaces: R[];
     maxFileSize?: number;
@@ -35,7 +45,6 @@ export interface IConfig {
     moduleName: string;
     newModuleName: string;
     newModule?: string;
-    thisContext: string;
 }
 
 export interface IError {

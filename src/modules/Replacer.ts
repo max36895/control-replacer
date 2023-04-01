@@ -1,4 +1,4 @@
-import { IConfig, ICustomReplace, IError, IReplaceOpt } from "../interfaces/IConfig";
+import { IConfig, IContext, ICSSReplace, ICustomReplace, IError, IReplaceOpt } from "../interfaces/IConfig";
 
 interface IImportReplacer {
     name: string;
@@ -113,7 +113,7 @@ export class Replacer {
         return str;
     }
 
-    private replaceImport(str: string, importReplacer: IImportReplacer, config: IConfig): string {
+    private replaceImport(str: string, importReplacer: IImportReplacer, config: IConfig & IContext): string {
         if (config.moduleName === config.newModuleName) {
             return str;
         }
@@ -173,8 +173,8 @@ export class Replacer {
         return value;
     }
 
-    private importReplacer(str: string, config: IConfig): string {
-        const {controlName, newControlName, moduleName} = config;
+    private importReplacer(str: string, config: IConfig & IContext): string {
+        const { controlName, newControlName, moduleName } = config;
         const importsReplacer = this.importParse(str, controlName, moduleName);
         if (importsReplacer) {
             let value = str;
@@ -213,7 +213,7 @@ export class Replacer {
     }
 
     private textReplacer(str: string, config: IConfig): string {
-        const {controlName, newControlName, moduleName, newModuleName} = config;
+        const { controlName, newControlName, moduleName, newModuleName } = config;
         const path = moduleName.split('/');
         const newPath: string[] = newModuleName.split('/');
         let value = str;
@@ -230,7 +230,7 @@ export class Replacer {
         return value;
     }
 
-    replaceControls(str: string, config: IConfig): string {
+    replaceControls(str: string, config: IConfig & IContext): string {
         let value = str;
         value = this.importReplacer(value, config);
         value = this.textReplacer(value, config);
@@ -263,6 +263,57 @@ export class Replacer {
                     + config.thisOpt + '\\b((?:\\n|[^>])+?>)'), 'g')),
                 '$1' + config.newOpt + '$2');
         });
+
+        return value;
+    }
+
+    cssReplace(str: string, config: ICSSReplace & IContext): string {
+        let value = str;
+        const isCssVar = config.varName.indexOf('--') === 0;
+        const isClassName = config.varName.includes('.')
+
+        if (config.isRemove || (isClassName && !config.newVarName)) {
+            if (isCssVar) {
+                value = value.replace((new RegExp('(' + config.varName + ':[^;]+;)', 'g')), '');
+            } else if (isClassName) {
+                const reg = (new RegExp('(^\\' + config.varName + '[^}]+})', 'mg'));
+                const find = value.match(reg);
+                if (find) {
+                    if ((find[0].match(/{/g) as string[]).length === 1) {
+                        value = value.replace(reg, '');
+                    } else {
+                        this.errors.push({
+                            fileName: config.thisContext,
+                            comment: `Не удалось удалить класс ${config.varName}, так как у него используются вложенные элементы!`,
+                            date: (new Date())
+                        });
+                    }
+                } else {
+                    if (value.match((new RegExp('(\\' + config.varName + '[^}]+})', 'mg')))) {
+                        this.errors.push({
+                            fileName: config.thisContext,
+                            comment: `Не удалось удалить класс ${config.varName}, так как он используется в связке с другим классом!`,
+                            date: (new Date())
+                        });
+                    }
+                }
+            } else {
+                value = value.replace((new RegExp('(' + config.varName + ')', 'g')), '');
+                return value;
+            }
+        }
+
+        let find = config.varName;
+        if (isCssVar) {
+            find = '--\\b' + find.replace('--', '') + '\\b';
+        } else if (isClassName) {
+            find = '\\b' + config.varName.replace('.', '') + '\\b';
+        } else {
+            find = '\\b' + find + '\\b';
+        }
+        const replace = isClassName ? config.newVarName.replace('.', '') : config.newVarName;
+
+        value = value.replace((new RegExp('(' + find + ')', 'g')), replace);
 
         return value;
     }

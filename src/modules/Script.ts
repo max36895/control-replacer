@@ -1,9 +1,11 @@
 import { FileUtils } from './FileUtils';
 import { Replacer } from './Replacer';
-import { ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
+import { IContext, ICSSReplace, ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
 import { log, success, error, warning } from "./logger";
 
-export type TypeReplacer = 'controls' | 'options' | 'custom';
+export type TypeReplacer = 'controls' | 'options' | 'custom' | 'css';
+
+type IReplacerOpt = IReplace | IReplaceOpt | ICustomReplace | ICSSReplace;
 
 export const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_artifacts'];
 
@@ -41,7 +43,7 @@ export class Script {
         return this.replacer.replaceOptions(newFileContent, replace);
     }
 
-    private script(param: IParam<IReplace | IReplaceOpt | ICustomReplace>, path: string, type: TypeReplacer = 'controls') {
+    private script(param: IParam<IReplacerOpt>, path: string, type: TypeReplacer = 'controls') {
         const dirs = FileUtils.getDirs(path);
         dirs.forEach((dir) => {
             const newPath = path + '/' + dir;
@@ -60,12 +62,19 @@ export class Script {
                         const fileContent = FileUtils.fread(newPath);
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
-                            if (type === "controls") {
-                                newFileContent = this._controlsReplace(replace as IReplace, newFileContent, newPath)
-                            } else if (type === 'options') {
-                                newFileContent = this._optionsReplace(replace as IReplaceOpt, newFileContent);
-                            } else if (type === 'custom') {
-                                newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
+                            switch (type) {
+                                case 'controls':
+                                    newFileContent = this._controlsReplace(replace as IReplace, newFileContent, newPath);
+                                    break;
+                                case 'options':
+                                    newFileContent = this._optionsReplace(replace as IReplaceOpt, newFileContent);
+                                    break;
+                                case 'custom':
+                                    newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
+                                    break;
+                                case 'css':
+                                    newFileContent = this.replacer.cssReplace(newFileContent, replace as ICSSReplace & IContext);
+                                    break;
                             }
                         });
                         if (fileContent !== newFileContent) {
@@ -131,7 +140,7 @@ export class Script {
         warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
     }
 
-    run(param: IParam<IReplace | IReplaceOpt | ICustomReplace>, type: TypeReplacer = 'controls') {
+    run(param: IParam<IReplacerOpt>, type: TypeReplacer = 'controls') {
         log('script start');
         log('=================================================================');
         this.errors = [];
@@ -148,8 +157,8 @@ export class Script {
         log('script end');
     }
 
-    static getCorrectParam(param: IParam<IReplace | IReplaceOpt | ICustomReplace>) {
-        const correctParam: IParam<IReplace | IReplaceOpt | ICustomReplace> = {
+    static getCorrectParam(param: IParam<IReplacerOpt>) {
+        const correctParam: IParam<IReplacerOpt> = {
             path: param.path,
             replaces: param.replaces,
             maxFileSize: param.maxFileSize || 50

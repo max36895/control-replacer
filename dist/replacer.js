@@ -317,6 +317,58 @@ class Replacer {
         });
         return value;
     }
+    cssReplace(str, config) {
+        let value = str;
+        const isCssVar = config.varName.indexOf('--') === 0;
+        const isClassName = config.varName.includes('.');
+        if (config.isRemove || (isClassName && !config.newVarName)) {
+            if (isCssVar) {
+                value = value.replace((new RegExp('(' + config.varName + ':[^;]+;)', 'g')), '');
+            }
+            else if (isClassName) {
+                const reg = (new RegExp('(^\\' + config.varName + '[^}]+})', 'mg'));
+                const find = value.match(reg);
+                if (find) {
+                    if (find[0].match(/{/g).length === 1) {
+                        value = value.replace(reg, '');
+                    }
+                    else {
+                        this.errors.push({
+                            fileName: config.thisContext,
+                            comment: `Не удалось удалить класс ${config.varName}, так как у него используются вложенные элементы!`,
+                            date: (new Date())
+                        });
+                    }
+                }
+                else {
+                    if (value.match((new RegExp('(\\' + config.varName + '[^}]+})', 'mg')))) {
+                        this.errors.push({
+                            fileName: config.thisContext,
+                            comment: `Не удалось удалить класс ${config.varName}, так как он используется в связке с другим классом!`,
+                            date: (new Date())
+                        });
+                    }
+                }
+            }
+            else {
+                value = value.replace((new RegExp('(' + config.varName + ')', 'g')), '');
+                return value;
+            }
+        }
+        let find = config.varName;
+        if (isCssVar) {
+            find = '--\\b' + find.replace('--', '') + '\\b';
+        }
+        else if (isClassName) {
+            find = '\\b' + config.varName.replace('.', '') + '\\b';
+        }
+        else {
+            find = '\\b' + find + '\\b';
+        }
+        const replace = isClassName ? config.newVarName.replace('.', '') : config.newVarName;
+        value = value.replace((new RegExp('(' + find + ')', 'g')), replace);
+        return value;
+    }
     customReplace(str, config) {
         return str.replace((new RegExp(config.reg, config.flag || 'g')), config.replace);
     }
@@ -389,14 +441,19 @@ class Script {
                         const fileContent = FileUtils.fread(newPath);
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
-                            if (type === "controls") {
-                                newFileContent = this._controlsReplace(replace, newFileContent, newPath);
-                            }
-                            else if (type === 'options') {
-                                newFileContent = this._optionsReplace(replace, newFileContent);
-                            }
-                            else if (type === 'custom') {
-                                newFileContent = this.replacer.customReplace(newFileContent, replace);
+                            switch (type) {
+                                case 'controls':
+                                    newFileContent = this._controlsReplace(replace, newFileContent, newPath);
+                                    break;
+                                case 'options':
+                                    newFileContent = this._optionsReplace(replace, newFileContent);
+                                    break;
+                                case 'custom':
+                                    newFileContent = this.replacer.customReplace(newFileContent, replace);
+                                    break;
+                                case 'css':
+                                    newFileContent = this.replacer.cssReplace(newFileContent, replace);
+                                    break;
                             }
                         });
                         if (fileContent !== newFileContent) {
@@ -516,6 +573,7 @@ function getScriptParam() {
     log('Поддерживаемые опции:');
     log('\t- config.json - переименовывание контролов или модулей');
     log('\t- replaceOpt config.json - переименовывание опций у контролов');
+    log('\t- cssReplace config.json - переименовывание css переменных или классов');
     log('\t- customReplace config.json - кастомная замена');
     log('\t- resetGit - откатывает изменения. Стоит использовать в том случае, если скрипт отработал ошибочно.');
     log('');
@@ -557,6 +615,21 @@ function getScriptOptionParam() {
     log('# }                                                                  #');
     log('######################################################################');
 }
+function getScriptCSSParam() {
+    log('######################################################################');
+    log('# Для корректной замены опций укажите файл настроек                  #');
+    log('# Файл должен выглядеть следующим образом:                           #');
+    log('# {                                                                  #');
+    log('#      "path": "Путь к репозиториям, где нужно выполнить замену"     #');
+    log('#      "replaces": [ // Массив модулей с контролами                  #');
+    log('#          "varName": "Текущее имя переменной или класса"            #');
+    log('#          "newVarName": "Новое имя переменной или класса"           #');
+    log('#          "isRemove": "Класс или переменная полностью удаляется"    #');
+    log('#      ]                                                             #');
+    log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
+    log('# }                                                                  #');
+    log('######################################################################');
+}
 function getScriptCustomParam() {
     log('######################################################################');
     log('# Для корректной замены укажите файл настроек                        #');
@@ -573,6 +646,15 @@ function getScriptCustomParam() {
     log('######################################################################');
 }
 const argv = process.argv;
+function getType(value) {
+    if (value === 'replaceOpt') {
+        return 'options';
+    }
+    else if (value === 'customReplace') {
+        return 'custom';
+    }
+    return 'css';
+}
 if (argv[2]) {
     if (argv[2].indexOf('.json') !== -1) {
         if (FileUtils.isFile(argv[2])) {
@@ -592,19 +674,25 @@ if (argv[2]) {
         switch (argv[2]) {
             case 'replaceOpt':
             case 'customReplace':
+            case 'cssReplace':
                 if (argv[3].indexOf('.json') !== -1) {
                     if (FileUtils.isFile(argv[3])) {
                         const param = JSON.parse(FileUtils.fread(argv[3]));
-                        const type = argv[2] === 'replaceOpt' ? 'options' : 'custom';
+                        const type = getType(argv[2]);
                         if (param.path) {
                             script.run(param, type);
                         }
                         else {
-                            if (type === 'options') {
-                                getScriptOptionParam();
-                            }
-                            else {
-                                getScriptCustomParam();
+                            switch (type) {
+                                case 'options':
+                                    getScriptOptionParam();
+                                    break;
+                                case 'custom':
+                                    getScriptCustomParam();
+                                    break;
+                                case 'css':
+                                    getScriptCSSParam();
+                                    break;
                             }
                         }
                     }
