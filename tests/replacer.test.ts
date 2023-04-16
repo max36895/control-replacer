@@ -126,7 +126,27 @@ import {Async} from 'Controls/Async';
                 <Async templateName="Controls/Tumbler:View"/>
             </>)
         }`,
-    }
+    },
+    {
+        name: 'replace rep in wml',
+        start: '<Controls.list:Button></Controls.list:Button>',
+        end: '<Engine.list:Button></Engine.list:Button>'
+    },
+    {
+        name: 'replace rep in react',
+        start: `import {Button} from 'Controls/list';
+        export default function Control(props: object){
+            return (<>
+                <Button caption='caption'/>
+            </>)
+        }`,
+        end: `import {Button} from 'Engine/list';
+        export default function Control(props: object){
+            return (<>
+                <Button caption='caption'/>
+            </>)
+        }`,
+    },
 ];
 
 const replaceOptions = [
@@ -276,7 +296,16 @@ describe('Replacer', () => {
                             "newName": "NewButton",
                         }
                     ],
-                }
+                },
+                {
+                    "module": "Controls/list",
+                    "controls": [
+                        {
+                            "name": "Button",
+                            "newModuleName": "Engine/list",
+                        }
+                    ],
+                },
             ]
         }) as IParam<IReplace>;
 

@@ -162,7 +162,25 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
         {
           "name": "Tumbler",
           "newName": "",
-          "newModuleName": "Tumbler"
+          "newModuleName": "Controls/Tumbler"
+        }
+      ]
+    }
+  ]
+}
+ ```
+
+Замена Controls/list:Button на Controls-button/list:Button.
+```json
+{
+  "path": "",
+  "replaces": [
+    {
+      "module": "Controls/list",
+      "controls": [
+        {
+          "name": "Button",
+          "newModuleName": "Controls-button/list"
         }
       ]
     }
@@ -188,7 +206,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
 
 ### Дополнительно
 
-Важно чтобы в module разделение было сделано через `/` иначе возможна некорректная работа. Также в `controls` можно не
+Важно чтобы в module и newModuleName разделение было сделано через `/` иначе возможна некорректная работа. Также в `controls` можно не
 указывать newName и newModuleName, в таком случае значения поставятся из name и module. При этом, одно из значений
 должно быть заполнено, иначе скрипт посчитает что правки не нужны и завершит обработку.
 
