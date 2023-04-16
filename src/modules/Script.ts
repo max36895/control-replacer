@@ -82,23 +82,24 @@ export class Script {
                             FileUtils.fwrite(newPath, newFileContent);
                         } else {
                             if (type === "controls") {
-                                let searchedModule = '';
-                                // Примитивная проверка на поиск вхождений. Возможно потом стоит либо забить, либо сделать лучше
+                                // Довольно примитивная проверка на поиск вхождений.
+                                // Тупо ищем что есть имя модуля и название для переименовывания.
+                                // Возможно потом стоит либо забить, либо сделать лучше
                                 (param.replaces as IReplace[]).forEach((replace) => {
                                     if (fileContent.includes(replace.module)) {
-                                        searchedModule = replace.module;
+                                        for (let i = 0; i < replace.controls.length; i++) {
+                                            const findName = replace.controls[i].name;
+                                            if (!findName || fileContent.includes(findName)) {
+                                                this.errors.push({
+                                                    fileName: newPath,
+                                                    comment: 'Найдены вхождения для модуля "' + replace.module + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
+                                                    date: (new Date())
+                                                });
+                                                break;
+                                            }
+                                        }
                                     }
-                                })
-                                if (searchedModule) {
-                                    // Пока заигнорил, так как выводятся ложные срабатывания, которые засоряют консоль
-                                    // Возможно стоит придумать более умный определитель
-                                    // warning(`В файле "${newPath}" найдены вхождения этого модуля "${searchedModule}", но скрипт не смог их обработать`);
-                                    this.errors.push({
-                                        fileName: newPath,
-                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
-                                        date: (new Date())
-                                    });
-                                }
+                                });
                             }
                         }
                     } else {

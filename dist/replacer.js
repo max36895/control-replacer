@@ -462,19 +462,21 @@ class Script {
                         }
                         else {
                             if (type === "controls") {
-                                let searchedModule = '';
                                 param.replaces.forEach((replace) => {
                                     if (fileContent.includes(replace.module)) {
-                                        searchedModule = replace.module;
+                                        for (let i = 0; i < replace.controls.length; i++) {
+                                            const findName = replace.controls[i].name;
+                                            if (!findName || fileContent.includes(findName)) {
+                                                this.errors.push({
+                                                    fileName: newPath,
+                                                    comment: 'Найдены вхождения для модуля "' + replace.module + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
+                                                    date: (new Date())
+                                                });
+                                                break;
+                                            }
+                                        }
                                     }
                                 });
-                                if (searchedModule) {
-                                    this.errors.push({
-                                        fileName: newPath,
-                                        comment: 'Найдены вхождения для модуля "' + searchedModule + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
-                                        date: (new Date())
-                                    });
-                                }
                             }
                         }
                     }
