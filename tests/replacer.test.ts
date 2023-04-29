@@ -147,6 +147,26 @@ import {Async} from 'Controls/Async';
             </>)
         }`,
     },
+    {
+        name: 'replace lib in wml',
+        start: '<Controls.my.scroll:Button></Controls.my.scroll:Button>',
+        end: '<Controls-buttons.Button></Controls-buttons.Button>'
+    },
+    {
+        name: 'replace lib in react',
+        start: `import {Button} from 'Controls/my/scroll';
+        export default function Control(props: object){
+            return (<>
+                <Button caption='caption'/>
+            </>)
+        }`,
+        end: `import {default as Button} from 'Controls-buttons/Button';
+        export default function Control(props: object){
+            return (<>
+                <Button caption='caption'/>
+            </>)
+        }`,
+    },
 ];
 
 const replaceOptions = [
@@ -306,6 +326,16 @@ describe('Replacer', () => {
                         }
                     ],
                 },
+                {
+                    module: "Controls/my/scroll",
+                    controls: [
+                        {
+                            name: 'Button',
+                            newName: '',
+                            newModuleName: 'Controls-buttons/Button'
+                        }
+                    ]
+                }
             ]
         }) as IParam<IReplace>;
 

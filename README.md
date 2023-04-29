@@ -36,7 +36,7 @@ node replacer.js cssReplace config.json
 node replacer.js customReplace config.json
 ```
 
-Сброс правок:
+Сброс правок, на случай если скрипт запущен ошибочно, либо с некорректным config.json:
 
 ```bash
 node replacer.js resetGit config.json
@@ -54,7 +54,7 @@ node replacer.js resetGit config.json
   "replaces": [
     {
       "module": "Текущее имя модуля",
-      "newModule": "Новое имя модуля. Стоит использовать когда весь модуль переносится",
+      "newModule": "Новое имя модуля. Стоит использовать когда весь модуль со всеми контролами переносится",
       "controls": [
         {
           "name": "Текущее имя контрола",
@@ -125,7 +125,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
 ```
 
 Для сброса правок, можно указать любой их указанных выше файлов конфигурации. Либо создать отдельный, но важно чтобы
-было указано свойство `path`
+было указано поле `path`
 
 ### Примеры файлов конфигурации
 
@@ -148,8 +148,26 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
 }
 ```
 
-Замена Controls/toggle:Tumbler на Controls/Tumbler. Обратите внимание на `newName`, если свойство не
-указывать, то произойдет переименование модуля(`Controls/Tumbler:Tumbler`), но при указании пустой строки,
+Замена Controls/list:Button на Controls-button/list:Button.
+```json
+{
+  "path": "",
+  "replaces": [
+    {
+      "module": "Controls/list",
+      "controls": [
+        {
+          "name": "Button",
+          "newModuleName": "Controls-button/list"
+        }
+      ]
+    }
+  ]
+}
+ ```
+
+Замена Controls/toggle:Tumbler на Controls-toggle/Tumbler. Обратите внимание на `newName`, если свойство не
+указывать, то произойдет переименование модуля(`Controls-toggle/Tumbler:Tumbler`), но при указании пустой строки,
 контрол подключается как модуль.
 
 ```json
@@ -162,25 +180,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
         {
           "name": "Tumbler",
           "newName": "",
-          "newModuleName": "Controls/Tumbler"
-        }
-      ]
-    }
-  ]
-}
- ```
-
-Замена Controls/list:Button на Controls-button/list:Button.
-```json
-{
-  "path": "",
-  "replaces": [
-    {
-      "module": "Controls/list",
-      "controls": [
-        {
-          "name": "Button",
-          "newModuleName": "Controls-button/list"
+          "newModuleName": "Controls-toggle/Tumbler"
         }
       ]
     }
@@ -206,8 +206,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
 
 ### Дополнительно
 
-Важно чтобы в module и newModuleName разделение было сделано через `/` иначе возможна некорректная работа. Также в `controls` можно не
-указывать newName и newModuleName, в таком случае значения поставятся из name и module. При этом, одно из значений
+Важно чтобы в module и newModuleName разделение было сделано через `/` иначе возможна некорректная работа. Также в `controls` можно не указывать newName и newModuleName, в таком случае значения поставятся из name и module. При этом, одно из значений
 должно быть заполнено, иначе скрипт посчитает что правки не нужны и завершит обработку.
 
 Подобное сделано для удобства, когда переименовывается только модуль или контролл.
@@ -217,7 +216,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
 
 ## Что корректно работает
 
-Скрипт автоматически вносит правки в wml файлы. А также может вносить правки в ts, tsx и других файлах.
+Скрипт автоматически вносит правки в wml файлы. А также может вносить правки в ts, tsx и другие файлы.
 
 Корректно обрабатываются следующие сценарии:
 
@@ -276,7 +275,7 @@ import * as toggle from 'Controls/toggle';
 
 Скрипт не тронет сам импорт, так как не знает нужно его заменить и как. Если вы полностью переносите весь модуль, то
 можно указать это название в `replaces.newModule`, в таком случае скрипт заменит импорт для модуля. Свойство стоит
-использовать тогда когда полностью переименовывается модуль, в противном случае скрипт отработает некорректно.
+использовать тогда, когда полностью переименовывается модуль, в противном случае скрипт отработает некорректно.
 
 Также если контрол использовался так `Controls.LoadingIndicator`, а нужно превратить его в `Controls.loading:Indicator`,
 то скрипт самостоятельно не сможет подобное обработать, а любая попытка провернуть подобное может обернуться ошибками.
@@ -293,7 +292,7 @@ import * as toggle from 'Controls/toggle';
 <ws:templateOptions optionName="..."/>
 </Asynk>
 ```
-Также не отработают случай с использование spred оператора
+Также не отработают случай с использование spread оператора
 ```js
 <Tumbler {...{optionName: '...'}}/>
 ```
