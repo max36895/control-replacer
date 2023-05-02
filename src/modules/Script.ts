@@ -51,7 +51,7 @@ export class Script {
                 return;
             }
             if (FileUtils.isDir(newPath)) {
-                this.script(param, newPath)
+                this.script(param, newPath, type);
             } else {
                 // На случай если нет прав на чтение или запись в директорию
                 try {

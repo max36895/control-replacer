@@ -432,7 +432,7 @@ class Script {
                 return;
             }
             if (FileUtils.isDir(newPath)) {
-                this.script(param, newPath);
+                this.script(param, newPath, type);
             }
             else {
                 try {
