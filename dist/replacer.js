@@ -58,7 +58,7 @@ class FileUtils {
             fs.appendFileSync(fileName, fileContent);
         }
     }
-    static fileSize(path, prefix = 'bite') {
+    static fileSize(path, prefix = 'mb') {
         const stat = fs.statSync(path);
         let size = stat.size;
         switch (prefix) {
@@ -99,45 +99,45 @@ const SEPARATORS = [
 ];
 class Replacer {
     errors = [];
-    static getImportMath(moduleName, str) {
+    static getImportMatch(moduleName, str) {
         const reg = new RegExp(`^import(\\n|[^('|")]+?)from ('|")${moduleName}('|");?$`, 'umg');
         return [...str.matchAll(reg)];
     }
     importParse(str, controlName, moduleName) {
-        const match = Replacer.getImportMath(moduleName, str);
-        if (match.length) {
+        const importsValue = Replacer.getImportMatch(moduleName, str);
+        if (importsValue.length) {
             const paths = [];
-            match.forEach((res) => {
-                if (res[1]) {
-                    const value = res[1].replace(/(\n|}|{)/g, ' ');
-                    const names = value.split(',').map((val) => val.trim());
+            importsValue.forEach((importValue) => {
+                if (importValue[1]) {
+                    const correctImport = importValue[1].replace(/(\n|}|{)/g, ' ');
+                    const names = correctImport.split(',').map((val) => val.trim());
                     names.forEach((name) => {
-                        const val = name.split(' ');
-                        for (let i = 0; i < val.length; i++) {
+                        const value = name.split(' ');
+                        for (let i = 0; i < value.length; i++) {
                             const path = {
                                 name: '',
                                 control: '',
                                 lib: '',
-                                fullImport: res[0],
-                                importNames: res[1],
+                                fullImport: importValue[0],
+                                importNames: importValue[1],
                                 importsList: names
                             };
-                            if (val[i] === controlName) {
-                                if (val[i + 1] === 'as') {
-                                    path.name = val[i + 2];
+                            if (value[i] === controlName) {
+                                if (value[i + 1] === 'as') {
+                                    path.name = value[i + 2];
                                     path.control = controlName;
                                 }
                                 else {
-                                    if (val[i - 1] !== 'as') {
+                                    if (value[i - 1] !== 'as') {
                                         path.name = controlName;
                                         path.control = controlName;
                                     }
                                 }
                             }
-                            else if (val[i] === '*') {
-                                if (val[i + 1] === 'as') {
+                            else if (value[i] === '*') {
+                                if (value[i + 1] === 'as') {
                                     path.control = controlName;
-                                    path.lib = val[i + 2];
+                                    path.lib = value[i + 2];
                                 }
                             }
                             if (path.name || path.lib || path.control) {
@@ -181,7 +181,7 @@ class Replacer {
             return str;
         }
         let value = str;
-        const match = Replacer.getImportMath(config.newModuleName, str);
+        const match = Replacer.getImportMatch(config.newModuleName, str);
         if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
             value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')), '\'' + (config.newModule || config.newModuleName) + '\'');
         }
@@ -224,7 +224,7 @@ class Replacer {
                 });
             }
         }
-        let emptyImportMatch = Replacer.getImportMath(config.moduleName, value);
+        let emptyImportMatch = Replacer.getImportMatch(config.moduleName, value);
         if (emptyImportMatch.length) {
             const emptyValue = emptyImportMatch[0][1].replace(/\n/g, '').trim();
             if (emptyValue === '' || emptyValue === '{}') {
@@ -393,6 +393,13 @@ function error(str) {
     console.log('\x1b[31m', str, '\x1b[0m');
 }
 
+var TypeReplacer;
+(function (TypeReplacer) {
+    TypeReplacer["Controls"] = "controls";
+    TypeReplacer["Options"] = "options";
+    TypeReplacer["Custom"] = "custom";
+    TypeReplacer["Css"] = "css";
+})(TypeReplacer || (TypeReplacer = {}));
 const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_artifacts'];
 class Script {
     replacer = new Replacer;
@@ -424,7 +431,7 @@ class Script {
     _optionsReplace(replace, newFileContent) {
         return this.replacer.replaceOptions(newFileContent, replace);
     }
-    script(param, path, type = 'controls') {
+    script(param, path, type = TypeReplacer.Controls) {
         const dirs = FileUtils.getDirs(path);
         dirs.forEach((dir) => {
             const newPath = path + '/' + dir;
@@ -442,16 +449,16 @@ class Script {
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
                             switch (type) {
-                                case 'controls':
+                                case TypeReplacer.Controls:
                                     newFileContent = this._controlsReplace(replace, newFileContent, newPath);
                                     break;
-                                case 'options':
+                                case TypeReplacer.Options:
                                     newFileContent = this._optionsReplace(replace, newFileContent);
                                     break;
-                                case 'custom':
+                                case TypeReplacer.Custom:
                                     newFileContent = this.replacer.customReplace(newFileContent, replace);
                                     break;
-                                case 'css':
+                                case TypeReplacer.Css:
                                     newFileContent = this.replacer.cssReplace(newFileContent, replace);
                                     break;
                             }
@@ -461,7 +468,7 @@ class Script {
                             FileUtils.fwrite(newPath, newFileContent);
                         }
                         else {
-                            if (type === "controls") {
+                            if (type === TypeReplacer.Controls) {
                                 param.replaces.forEach((replace) => {
                                     if (fileContent.includes(replace.module)) {
                                         for (let i = 0; i < replace.controls.length; i++) {
@@ -517,7 +524,7 @@ class Script {
         FileUtils.fwrite((`${errorDir}/${fileName}.log`), errorContent, 'w');
         warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
     }
-    run(param, type = 'controls') {
+    run(param, type = TypeReplacer.Controls) {
         log('script start');
         log('=================================================================');
         this.errors = [];
@@ -535,7 +542,7 @@ class Script {
         const correctParam = {
             path: param.path,
             replaces: param.replaces,
-            maxFileSize: param.maxFileSize || 50
+            maxFileSize: param.maxFileSize ?? 50
         };
         return correctParam;
     }
@@ -650,12 +657,12 @@ function getScriptCustomParam() {
 const argv = process.argv;
 function getType(value) {
     if (value === 'replaceOpt') {
-        return 'options';
+        return TypeReplacer.Options;
     }
     else if (value === 'customReplace') {
-        return 'custom';
+        return TypeReplacer.Custom;
     }
-    return 'css';
+    return TypeReplacer.Css;
 }
 if (argv[2]) {
     if (argv[2].indexOf('.json') !== -1) {
@@ -669,7 +676,7 @@ if (argv[2]) {
             }
         }
         else {
-            error('Не удалось найти файл');
+            error(`Не удалось найти файл "${argv[2]}"`);
         }
     }
     else {
@@ -686,20 +693,20 @@ if (argv[2]) {
                         }
                         else {
                             switch (type) {
-                                case 'options':
+                                case TypeReplacer.Options:
                                     getScriptOptionParam();
                                     break;
-                                case 'custom':
+                                case TypeReplacer.Custom:
                                     getScriptCustomParam();
                                     break;
-                                case 'css':
+                                case TypeReplacer.Css:
                                     getScriptCSSParam();
                                     break;
                             }
                         }
                     }
                     else {
-                        error('Не удалось найти файл');
+                        error(`Не удалось найти файл "${argv[3]}"`);
                     }
                 }
                 else {
@@ -720,7 +727,7 @@ if (argv[2]) {
                         }
                     }
                     else {
-                        error('Не удалось найти файл');
+                        error(`Не удалось найти файл "${argv[3]}"`);
                     }
                 }
                 else {

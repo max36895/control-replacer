@@ -31,49 +31,49 @@ const SEPARATORS = [
 export class Replacer {
     errors: IError[] = [];
 
-    private static getImportMath(moduleName: string, str: string): RegExpMatchArray[] {
+    private static getImportMatch(moduleName: string, str: string): RegExpMatchArray[] {
         const reg = new RegExp(`^import(\\n|[^('|")]+?)from ('|")${moduleName}('|");?$`, 'umg');
         return [...str.matchAll(reg)];
     }
 
     private importParse(str: string, controlName: string, moduleName: string): IImportReplacer[] | null {
         // Если будет несколько экспортов из 1 либы в файле, то есть вероятность, что что-то может пойти не так
-        const match = Replacer.getImportMath(moduleName, str);
+        const importsValue = Replacer.getImportMatch(moduleName, str);
 
-        if (match.length) {
+        if (importsValue.length) {
             const paths: IImportReplacer[] = [];
-            match.forEach((res) => {
-                if (res[1]) {
-                    const value = res[1].replace(/(\n|}|{)/g, ' ') as string;
-                    const names = value.split(',').map((val) => val.trim());
+            importsValue.forEach((importValue) => {
+                if (importValue[1]) {
+                    const correctImport = importValue[1].replace(/(\n|}|{)/g, ' ') as string;
+                    const names = correctImport.split(',').map((val) => val.trim());
 
                     names.forEach((name) => {
-                        const val = name.split(' ');
-                        for (let i = 0; i < val.length; i++) {
+                        const value = name.split(' ');
+                        for (let i = 0; i < value.length; i++) {
                             const path: IImportReplacer = {
                                 name: '',
                                 control: '',
                                 lib: '',
-                                fullImport: res[0],
-                                importNames: res[1],
+                                fullImport: importValue[0],
+                                importNames: importValue[1],
                                 importsList: names
                             };
-                            if (val[i] === controlName) {
-                                if (val[i + 1] === 'as') {
-                                    path.name = val[i + 2];
+                            if (value[i] === controlName) {
+                                if (value[i + 1] === 'as') {
+                                    path.name = value[i + 2];
                                     path.control = controlName;
                                 } else {
-                                    if (val[i - 1] !== 'as') {
+                                    if (value[i - 1] !== 'as') {
                                         path.name = controlName
                                         path.control = controlName;
                                     }
                                 }
-                            } else if (val[i] === '*') {
+                            } else if (value[i] === '*') {
                                 // Если записали таким образом, то скорей всего хотят импортировать все,
                                 // но в таком случае может возникнуть проблема когда контрол превращается в модуль
-                                if (val[i + 1] === 'as') {
+                                if (value[i + 1] === 'as') {
                                     path.control = controlName;
-                                    path.lib = val[i + 2];
+                                    path.lib = value[i + 2];
                                 }
                             }
                             if (path.name || path.lib || path.control) {
@@ -83,8 +83,10 @@ export class Replacer {
                     });
                 }
             });
+
             return paths;
         }
+
         return null
     }
 
@@ -94,6 +96,7 @@ export class Replacer {
             const updateImport = match[0][1].split(',');
             let startSeparator = '{';
             let endSeparator = '}';
+
             for (let i = 0; i < updateImport.length; i++) {
                 if (updateImport[i].includes('{')) {
                     startSeparator = '';
@@ -103,22 +106,26 @@ export class Replacer {
                 }
                 updateImport[i] = updateImport[i].trim();
             }
+
             if (importReplacer.name === importReplacer.control) {
                 updateImport.push(startSeparator + importReplacer.control + endSeparator);
             } else {
                 updateImport.push(startSeparator + importReplacer.control + ' as ' + importReplacer.name + endSeparator);
             }
+
             return value.replace(match[0][1], ' ' + updateImport.join(', ') + ' ');
         }
+
         return str;
     }
 
-    private replaceImport(str: string, importReplacer: IImportReplacer, config: IConfig & IContext): string {
+    private updateImport(str: string, importReplacer: IImportReplacer, config: IConfig & IContext): string {
         if (config.moduleName === config.newModuleName) {
             return str;
         }
+
         let value = str;
-        const match = Replacer.getImportMath(config.newModuleName, str);
+        const match = Replacer.getImportMatch(config.newModuleName, str);
 
         if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
             value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')),
@@ -162,7 +169,8 @@ export class Replacer {
                 });
             }
         }
-        let emptyImportMatch = Replacer.getImportMath(config.moduleName, value);
+
+        let emptyImportMatch = Replacer.getImportMatch(config.moduleName, value);
         if (emptyImportMatch.length) {
             const emptyValue = emptyImportMatch[0][1].replace(/\n/g, '').trim();
             if (emptyValue === '' || emptyValue === '{}') {
@@ -183,8 +191,9 @@ export class Replacer {
                 if (!importReplacer.name) {
                     reg = (new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g'));
                 }
+
                 if (reg.test(str)) {
-                    value = this.replaceImport(value, importReplacer, config);
+                    value = this.updateImport(value, importReplacer, config);
                     if (importReplacer.name) {
                         if (newControlName) {
                             if (importReplacer.name === importReplacer.control) {
@@ -207,8 +216,10 @@ export class Replacer {
                     }
                 }
             });
+
             return value;
         }
+
         return str;
     }
 
@@ -224,9 +235,12 @@ export class Replacer {
         }
 
         SEPARATORS.forEach((separator) => {
-            value = value.replace((new RegExp(path.join(separator.lib) + separator.control + controlName, 'g')),
-                newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName);
+            value = value.replace(
+                (new RegExp(path.join(separator.lib) + separator.control + controlName, 'g')),
+                newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName
+            );
         });
+
         return value;
     }
 
@@ -240,18 +254,21 @@ export class Replacer {
     replaceOptions(str: string, config: IReplaceOpt): string {
         let value = str;
         const importsReplacer = this.importParse(str, config.control, config.module);
+
         if (importsReplacer) {
             importsReplacer.forEach(importReplacer => {
                 if (importReplacer.name) {
                     value = value.replace(
                         (new RegExp('(<\\b' + importReplacer.name + '\\b(?:\\n|[^>])+?)\\b'
                             + config.thisOpt + '\\b((?:\\n|[^>])+?>)', 'g')),
-                        '$1' + config.newOpt + '$2');
+                        '$1' + config.newOpt + '$2'
+                    );
                 } else {
                     value = value.replace(
                         (new RegExp('(<' + importReplacer.lib + '.' + importReplacer.control +
                             '\\b(?:\\n|[^>])+?)\\b' + config.thisOpt + '\\b((?:\\n|[^>])+?>)')),
-                        '$1' + config.newOpt + '$2');
+                        '$1' + config.newOpt + '$2'
+                    );
                 }
             });
         }
@@ -259,9 +276,14 @@ export class Replacer {
         const path = config.module.split('/');
         SEPARATORS.forEach((separator) => {
             value = value.replace(
-                (new RegExp(('(' + path.join(separator.lib) + separator.control + config.control + '\\b(?:\\n|[^>])+?)\\b'
-                    + config.thisOpt + '\\b((?:\\n|[^>])+?>)'), 'g')),
-                '$1' + config.newOpt + '$2');
+                (new RegExp(
+                    (
+                        '(' + path.join(separator.lib) + separator.control + config.control + '\\b(?:\\n|[^>])+?)\\b'
+                        + config.thisOpt + '\\b((?:\\n|[^>])+?>)'
+                    ), 'g')
+                ),
+                '$1' + config.newOpt + '$2'
+            );
         });
 
         return value;
@@ -311,8 +333,8 @@ export class Replacer {
         } else {
             find = '\\b' + find + '\\b';
         }
-        const replace = isClassName ? config.newVarName.replace('.', '') : config.newVarName;
 
+        const replace = isClassName ? config.newVarName.replace('.', '') : config.newVarName;
         value = value.replace((new RegExp('(' + find + ')', 'g')), replace);
 
         return value;

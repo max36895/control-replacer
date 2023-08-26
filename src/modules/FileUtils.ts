@@ -38,7 +38,7 @@ export class FileUtils {
         }
     }
 
-    static fileSize(path: string, prefix: string = 'bite'): number {
+    static fileSize(path: string, prefix: string = 'mb'): number {
         const stat = fs.statSync(path);
         let size = stat.size;
         switch (prefix) {

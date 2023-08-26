@@ -95,11 +95,11 @@ const argv = process.argv;
 
 function getType(value: string): TypeReplacer {
     if (value === 'replaceOpt') {
-        return 'options'
+        return TypeReplacer.Options;
     } else if (value === 'customReplace') {
-        return 'custom';
+        return TypeReplacer.Custom;
     }
-    return 'css';
+    return TypeReplacer.Css;
 }
 
 if (argv[2]) {
@@ -112,7 +112,7 @@ if (argv[2]) {
                 getScriptControlParam();
             }
         } else {
-            error('Не удалось найти файл');
+            error(`Не удалось найти файл "${argv[2]}"`);
         }
     } else {
         switch (argv[2]) {
@@ -127,19 +127,19 @@ if (argv[2]) {
                             script.run(param, type);
                         } else {
                             switch (type) {
-                                case 'options':
+                                case TypeReplacer.Options:
                                     getScriptOptionParam();
                                     break;
-                                case 'custom':
+                                case TypeReplacer.Custom:
                                     getScriptCustomParam();
                                     break;
-                                case 'css':
+                                case TypeReplacer.Css:
                                     getScriptCSSParam();
                                     break;
                             }
                         }
                     } else {
-                        error('Не удалось найти файл');
+                        error(`Не удалось найти файл "${argv[3]}"`);
                     }
                 } else {
                     error('Не передан файл с конфигурацией');
@@ -158,7 +158,7 @@ if (argv[2]) {
                             error('Укажите свойство path в конфигурации');
                         }
                     } else {
-                        error('Не удалось найти файл');
+                        error(`Не удалось найти файл "${argv[3]}"`);
                     }
                 } else {
                     error('Не передан файл с конфигурацией');

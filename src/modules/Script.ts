@@ -3,7 +3,12 @@ import { Replacer } from './Replacer';
 import { IContext, ICSSReplace, ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
 import { log, success, error, warning } from "./logger";
 
-export type TypeReplacer = 'controls' | 'options' | 'custom' | 'css';
+export enum TypeReplacer {
+    Controls = 'controls',
+    Options = 'options',
+    Custom = 'custom',
+    Css = 'css'
+}
 
 type IReplacerOpt = IReplace | IReplaceOpt | ICustomReplace | ICSSReplace;
 
@@ -43,7 +48,7 @@ export class Script {
         return this.replacer.replaceOptions(newFileContent, replace);
     }
 
-    private script(param: IParam<IReplacerOpt>, path: string, type: TypeReplacer = 'controls') {
+    private script(param: IParam<IReplacerOpt>, path: string, type: TypeReplacer = TypeReplacer.Controls) {
         const dirs = FileUtils.getDirs(path);
         dirs.forEach((dir) => {
             const newPath = path + '/' + dir;
@@ -63,16 +68,16 @@ export class Script {
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
                             switch (type) {
-                                case 'controls':
+                                case TypeReplacer.Controls:
                                     newFileContent = this._controlsReplace(replace as IReplace, newFileContent, newPath);
                                     break;
-                                case 'options':
+                                case TypeReplacer.Options:
                                     newFileContent = this._optionsReplace(replace as IReplaceOpt, newFileContent);
                                     break;
-                                case 'custom':
+                                case TypeReplacer.Custom:
                                     newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
                                     break;
-                                case 'css':
+                                case TypeReplacer.Css:
                                     newFileContent = this.replacer.cssReplace(newFileContent, replace as ICSSReplace & IContext);
                                     break;
                             }
@@ -81,7 +86,7 @@ export class Script {
                             success(`Обновляю файл: ${newPath}`);
                             FileUtils.fwrite(newPath, newFileContent);
                         } else {
-                            if (type === "controls") {
+                            if (type === TypeReplacer.Controls) {
                                 // Довольно примитивная проверка на поиск вхождений.
                                 // Тупо ищем что есть имя модуля и название для переименовывания.
                                 // Возможно потом стоит либо забить, либо сделать лучше
@@ -141,7 +146,7 @@ export class Script {
         warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
     }
 
-    run(param: IParam<IReplacerOpt>, type: TypeReplacer = 'controls') {
+    run(param: IParam<IReplacerOpt>, type: TypeReplacer = TypeReplacer.Controls) {
         log('script start');
         log('=================================================================');
         this.errors = [];
@@ -158,11 +163,11 @@ export class Script {
         log('script end');
     }
 
-    static getCorrectParam(param: IParam<IReplacerOpt>) {
+    static getCorrectParam(param: IParam<IReplacerOpt>): IParam<IReplacerOpt> {
         const correctParam: IParam<IReplacerOpt> = {
             path: param.path,
             replaces: param.replaces,
-            maxFileSize: param.maxFileSize || 50
+            maxFileSize: param.maxFileSize ?? 50
         };
         return correctParam;
     }
