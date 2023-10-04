@@ -1,9 +1,9 @@
 #!/usr/bin/env node
+import { ICustomReplace, IParam, IReplaceOpt } from './interfaces/IConfig';
 import { Script, TypeReplacer } from './modules/Script';
 import { FileUtils } from './modules/FileUtils';
-import { resetGit } from "./modules/Reset";
-import { ICustomReplace, IParam, IReplaceOpt } from "./interfaces/IConfig";
-import { log, error } from "./modules/logger";
+import { error, log } from './modules/logger';
+import { resetGit } from './modules/Reset';
 
 const script = new Script();
 
@@ -105,7 +105,7 @@ function getType(value: string): TypeReplacer {
 if (argv[2]) {
     if (argv[2].indexOf('.json') !== -1) {
         if (FileUtils.isFile(argv[2])) {
-            const param = JSON.parse(FileUtils.fread(argv[2]));
+            const param = JSON.parse(FileUtils.read(argv[2]));
             if (param.path) {
                 script.run(param);
             } else {
@@ -121,7 +121,7 @@ if (argv[2]) {
             case 'cssReplace':
                 if (argv[3].indexOf('.json') !== -1) {
                     if (FileUtils.isFile(argv[3])) {
-                        const param: IParam<IReplaceOpt | ICustomReplace> = JSON.parse(FileUtils.fread(argv[3]));
+                        const param: IParam<IReplaceOpt | ICustomReplace> = JSON.parse(FileUtils.read(argv[3]));
                         const type: TypeReplacer = getType(argv[2]);
                         if (param.path) {
                             script.run(param, type);
@@ -149,7 +149,7 @@ if (argv[2]) {
                 // на случай если скрипт по полной облажался
                 if (argv[3].indexOf('.json') !== -1) {
                     if (FileUtils.isFile(argv[3])) {
-                        const param = JSON.parse(FileUtils.fread(argv[3]));
+                        const param = JSON.parse(FileUtils.read(argv[3]));
                         if (param.path) {
                             log('=== start ===');
                             resetGit(param.path);

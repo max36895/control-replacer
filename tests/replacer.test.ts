@@ -1,43 +1,43 @@
-import { Replacer } from "../src/modules/Replacer";
-import { Script } from "../src/modules/Script";
-import { IContext, ICSSReplace, IParam, IReplace, IReplaceOpt } from "../src/interfaces/IConfig";
+import { IContext, ICSSReplace, IParam, IReplace, IReplaceOpt } from '../src/interfaces/IConfig';
+import { Replacer } from '../src/modules/Replacer';
+import { Script } from '../src/modules/Script';
 
 const replaceControl = [
     {
         name: 'control to module',
         start: `import {Toggle} from 'Controls/toggle'`,
-        end: `import {default as Toggle} from 'Controls/Toggle'`
+        end: `import { default as Toggle } from 'Controls/Toggle'`
     },
     {
         name: 'control to module and used in react',
         start: `import {Toggle} from 'Controls/toggle';
             return <Toggle></Toggle>`,
-        end: `import {default as Toggle} from 'Controls/Toggle';
+        end: `import { default as Toggle } from 'Controls/Toggle';
             return <Toggle></Toggle>`
     },
     {
         name: 'rename control',
         start: `import {BigSeparator} from 'Controls/toggle'`,
-        end: `import {MoreButton} from 'Controls/toggle'`
+        end: `import { MoreButton } from 'Controls/toggle'`
     },
     {
         name: 'rename control and used in react',
         start: `import {BigSeparator} from 'Controls/toggle';
             return <BigSeparator></BigSeparator>`,
-        end: `import {MoreButton} from 'Controls/toggle';
+        end: `import { MoreButton } from 'Controls/toggle';
             return <MoreButton></MoreButton>`
     },
     {
         name: 'rename control and control to module',
         start: `import {Toggle,BigSeparator} from 'Controls/toggle'`,
-        end: `import {MoreButton} from 'Controls/toggle';\nimport {default as Toggle} from 'Controls/Toggle';`
+        end: `import { MoreButton } from 'Controls/toggle';\nimport { default as Toggle } from 'Controls/Toggle';`
     },
     {
         name: 'rename control and control to module in react',
         start: `import {Toggle,BigSeparator} from 'Controls/toggle';
             return <BigSeparator></BigSeparator>`,
-        end: `import {MoreButton} from 'Controls/toggle';
-import {default as Toggle} from 'Controls/Toggle';
+        end: `import { MoreButton } from 'Controls/toggle';
+import { default as Toggle } from 'Controls/Toggle';
             return <MoreButton></MoreButton>`
     },
     {
@@ -45,15 +45,15 @@ import {default as Toggle} from 'Controls/Toggle';
         start: `import {Toggle,BigSeparator} from 'Controls/toggle';
 import {Test} from 'Controls/Toggle';
             return <BigSeparator></BigSeparator>`,
-        end: `import {MoreButton} from 'Controls/toggle';
-import {Test, default as Toggle} from 'Controls/Toggle';
+        end: `import { MoreButton } from 'Controls/toggle';
+import { Test, default as Toggle } from 'Controls/Toggle';
             return <MoreButton></MoreButton>`
     },
     {
         name: 'rename control in import as',
         start: `import {BigSeparator as Test} from 'Controls/toggle';
             return <Test></Test><BigSeparator>`,
-        end: `import {MoreButton as Test} from 'Controls/toggle';
+        end: `import { MoreButton as Test } from 'Controls/toggle';
             return <Test></Test><BigSeparator>`
     },
     {
@@ -67,19 +67,19 @@ import {Test, default as Toggle} from 'Controls/Toggle';
         name: 'rename control and module',
         start: `import {Tumbler} from 'Controls/toggle';
             return <Tumbler></Tumbler>`,
-        end: `import {View} from 'Controls/Tumbler';
+        end: `import { View } from 'Controls/Tumbler';
             return <View></View>`
     },
     {
         name: 'rename control, module and rename module, control in module',
         start: `import {Toggle,Tumbler} from 'Controls/toggle'`,
-        end: `import {View} from 'Controls/Tumbler';\nimport {default as Toggle} from 'Controls/Toggle';`
+        end: `import { View } from 'Controls/Tumbler';\nimport { default as Toggle } from 'Controls/Toggle';`
     },
     {
         name: ' full rename',
         start: `import {Toggle,Tumbler} from 'Controls/toggle';
             return <Toggle/><Tumbler></Tumbler><Toggle></Toggle><Tumbler/><Tumbler {...props}/>`,
-        end: `import {View} from 'Controls/Tumbler';\nimport {default as Toggle} from 'Controls/Toggle';
+        end: `import { View } from 'Controls/Tumbler';\nimport { default as Toggle } from 'Controls/Toggle';
             return <Toggle/><View></View><Toggle></Toggle><View/><View {...props}/>`
     },
     {
@@ -114,11 +114,11 @@ import {Async} from 'Controls/Async';
                 <Async templateName="Controls/toggle:Tumbler"/>
             </>)
         }`,
-        end: `import { MoreButton} from 'Controls/toggle';
-import {View} from 'Controls/Tumbler';
-import {default as Toggle} from 'Controls/Toggle';
-import {NewButton} from 'Controls/buttons';
-import {Async} from 'Controls/Async';
+        end: `import { MoreButton } from 'Controls/toggle';
+import { View } from 'Controls/Tumbler';
+import { default as Toggle } from 'Controls/Toggle';
+import { NewButton } from 'Controls/buttons';
+import { Async } from 'Controls/Async';
         export default function Control(props: object){
             return (<>
                 <NewButton caption={(<MoreButton/>)}/>
@@ -140,7 +140,7 @@ import {Async} from 'Controls/Async';
                 <Button caption='caption'/>
             </>)
         }`,
-        end: `import {Button} from 'Engine/list';
+        end: `import { Button } from 'Engine/list';
         export default function Control(props: object){
             return (<>
                 <Button caption='caption'/>
@@ -160,7 +160,7 @@ import {Async} from 'Controls/Async';
                 <Button caption='caption'/>
             </>)
         }`,
-        end: `import {default as Button} from 'Controls-buttons/Button';
+        end: `import { default as Button } from 'Controls-buttons/Button';
         export default function Control(props: object){
             return (<>
                 <Button caption='caption'/>
@@ -212,7 +212,7 @@ const replaceOptions = [
 <Controls.custom:Toggle myClass="Toggle"/>
 <Controls/toggle:Toggle className={()=>{}} value/>`
     },
-]
+];
 
 const replaceCSS = [
     {
@@ -281,7 +281,7 @@ const replaceCSS = [
         }
         <div class=" noremoveClassName"></div>`
     }
-]
+];
 
 describe('Replacer', () => {
     describe('replacer control', () => {

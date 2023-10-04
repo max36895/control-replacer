@@ -3,6 +3,9 @@ const KB = 1024;
 const MB = KB * 1024;
 const GB = MB * 1024;
 
+/**
+ * Набор утилит для работы с файлами и папками
+ */
 export class FileUtils {
     static isFile(file: string): boolean {
         try {
@@ -16,7 +19,7 @@ export class FileUtils {
     static isDir(file: string): boolean {
         try {
             const stat = fs.lstatSync(file);
-            return stat.isDirectory()
+            return stat.isDirectory();
         } catch (e) {
             return false;
         }
@@ -26,11 +29,11 @@ export class FileUtils {
         fs.mkdirSync(path);
     }
 
-    static fread(fileName: string): string {
+    static read(fileName: string): string {
         return fs.readFileSync(fileName, 'utf-8');
     }
 
-    static fwrite(fileName: string, fileContent: string, mode: string = 'w'): void {
+    static write(fileName: string, fileContent: string, mode: string = 'w'): void {
         if (mode === 'w') {
             fs.writeFileSync(fileName, fileContent);
         } else {

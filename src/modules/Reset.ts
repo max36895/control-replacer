@@ -1,6 +1,6 @@
-import { EXCLUDE_DIRS } from "./Script";
-import { FileUtils } from "./FileUtils";
 import * as childProcess from 'child_process';
+import { EXCLUDE_DIRS } from './Script';
+import { FileUtils } from './FileUtils';
 
 const REP_FILES = ['README.md', 'package.json', '.gitignore'];
 
@@ -11,7 +11,7 @@ export function resetGit(path: string): void {
         if (REP_FILES.includes(dir)) {
             isRep = true;
         }
-    })
+    });
     if (isRep) {
         childProcess.execSync(`cd ${path} && git reset --hard`);
         return;

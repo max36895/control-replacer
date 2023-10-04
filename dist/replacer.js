@@ -21,6 +21,19 @@ function _interopNamespaceDefault(e) {
 
 var childProcess__namespace = /*#__PURE__*/_interopNamespaceDefault(childProcess);
 
+function log(str) {
+    console.log(str);
+}
+function success(str) {
+    console.log('\x1b[32m', str, '\x1b[0m');
+}
+function warning(str) {
+    console.log('\x1b[33m', str, '\x1b[0m');
+}
+function error(str) {
+    console.log('\x1b[31m', str, '\x1b[0m');
+}
+
 const fs = require('fs');
 const KB = 1024;
 const MB = KB * 1024;
@@ -47,10 +60,10 @@ class FileUtils {
     static mkDir(path) {
         fs.mkdirSync(path);
     }
-    static fread(fileName) {
+    static read(fileName) {
         return fs.readFileSync(fileName, 'utf-8');
     }
-    static fwrite(fileName, fileContent, mode = 'w') {
+    static write(fileName, fileContent, mode = 'w') {
         if (mode === 'w') {
             fs.writeFileSync(fileName, fileContent);
         }
@@ -100,56 +113,8 @@ const SEPARATORS = [
 class Replacer {
     errors = [];
     static getImportMatch(moduleName, str) {
-        const reg = new RegExp(`^import(\\n|[^('|")]+?)from ('|")${moduleName}('|");?$`, 'umg');
+        const reg = new RegExp(`^import(\\n|[^('|")]+?)from ['|"]${moduleName}['|"];?$`, 'umg');
         return [...str.matchAll(reg)];
-    }
-    importParse(str, controlName, moduleName) {
-        const importsValue = Replacer.getImportMatch(moduleName, str);
-        if (importsValue.length) {
-            const paths = [];
-            importsValue.forEach((importValue) => {
-                if (importValue[1]) {
-                    const correctImport = importValue[1].replace(/(\n|}|{)/g, ' ');
-                    const names = correctImport.split(',').map((val) => val.trim());
-                    names.forEach((name) => {
-                        const value = name.split(' ');
-                        for (let i = 0; i < value.length; i++) {
-                            const path = {
-                                name: '',
-                                control: '',
-                                lib: '',
-                                fullImport: importValue[0],
-                                importNames: importValue[1],
-                                importsList: names
-                            };
-                            if (value[i] === controlName) {
-                                if (value[i + 1] === 'as') {
-                                    path.name = value[i + 2];
-                                    path.control = controlName;
-                                }
-                                else {
-                                    if (value[i - 1] !== 'as') {
-                                        path.name = controlName;
-                                        path.control = controlName;
-                                    }
-                                }
-                            }
-                            else if (value[i] === '*') {
-                                if (value[i + 1] === 'as') {
-                                    path.control = controlName;
-                                    path.lib = value[i + 2];
-                                }
-                            }
-                            if (path.name || path.lib || path.control) {
-                                paths.push(path);
-                            }
-                        }
-                    });
-                }
-            });
-            return paths;
-        }
-        return null;
     }
     static addedInImport(str, match, importReplacer) {
         if (match.length) {
@@ -175,119 +140,6 @@ class Replacer {
             return value.replace(match[0][1], ' ' + updateImport.join(', ') + ' ');
         }
         return str;
-    }
-    replaceImport(str, importReplacer, config) {
-        if (config.moduleName === config.newModuleName) {
-            return str;
-        }
-        let value = str;
-        const match = Replacer.getImportMatch(config.newModuleName, str);
-        if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
-            value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')), '\'' + (config.newModule || config.newModuleName) + '\'');
-        }
-        else {
-            const imports = [];
-            let startSeparator = '';
-            let endSeparator = '';
-            if (importReplacer.name) {
-                importReplacer.importNames.split(',').forEach(imp => {
-                    if (!(new RegExp(`\\b${importReplacer.control}\\b`)).test(imp)) {
-                        imports.push(imp);
-                    }
-                    else {
-                        if (imp.includes('{')) {
-                            startSeparator = ' {';
-                        }
-                        if (imp.includes('}')) {
-                            endSeparator = '} ';
-                        }
-                    }
-                });
-                value = value.replace(importReplacer.importNames, startSeparator + imports.join(', ') + endSeparator);
-                if (match.length) {
-                    value = Replacer.addedInImport(value, match, importReplacer);
-                }
-                else {
-                    let newImport = `\'${config.moduleName}\'`;
-                    if (config.controlName) {
-                        newImport += `;\nimport {${importReplacer.control}${importReplacer.control !== importReplacer.name ? (' as ' + importReplacer.name) : ''}} from '${config.newModuleName}';`;
-                    }
-                    value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')), newImport);
-                    value = value.replace(';;', ';');
-                }
-            }
-            else {
-                this.errors.push({
-                    fileName: config.thisContext,
-                    comment: `Используется страшный импорт(import * as ${importReplacer.lib} from \'${config.moduleName}\')! Не знаю как его правильно обработать!`,
-                    date: (new Date())
-                });
-            }
-        }
-        let emptyImportMatch = Replacer.getImportMatch(config.moduleName, value);
-        if (emptyImportMatch.length) {
-            const emptyValue = emptyImportMatch[0][1].replace(/\n/g, '').trim();
-            if (emptyValue === '' || emptyValue === '{}') {
-                value = value.replace(emptyImportMatch[0][0] + '\n', '');
-            }
-        }
-        return value;
-    }
-    importReplacer(str, config) {
-        const { controlName, newControlName, moduleName } = config;
-        const importsReplacer = this.importParse(str, controlName, moduleName);
-        if (importsReplacer) {
-            let value = str;
-            importsReplacer.forEach((importReplacer) => {
-                let reg = (new RegExp(importReplacer.control));
-                if (!importReplacer.name) {
-                    reg = (new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g'));
-                }
-                if (reg.test(str)) {
-                    value = this.replaceImport(value, importReplacer, config);
-                    if (importReplacer.name) {
-                        if (newControlName) {
-                            if (importReplacer.name === importReplacer.control) {
-                                value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b([^(/|\'|\")])', 'g')), newControlName + '$1');
-                                value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b/>', 'g')), newControlName + '/>');
-                            }
-                            else {
-                                value = value.replace((new RegExp('([^(.|/|:)])\\b' + importReplacer.control + '\\b([^(.|/|:)])')), '$1' + newControlName + '$2');
-                            }
-                        }
-                        else {
-                            const reg = (new RegExp('\\b' + importReplacer.control + '\\b'));
-                            if (importReplacer.name === importReplacer.control) {
-                                value = value.replace(reg, ('default as ' + controlName));
-                            }
-                            else {
-                                value = value.replace(reg, ('default'));
-                            }
-                        }
-                    }
-                    else {
-                        value = value.replace((new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g')), importReplacer.lib + '.' + newControlName);
-                    }
-                }
-            });
-            return value;
-        }
-        return str;
-    }
-    textReplacer(str, config) {
-        const { controlName, newControlName, moduleName, newModuleName } = config;
-        const path = moduleName.split('/');
-        const newPath = newModuleName.split('/');
-        let value = str;
-        let newName = newControlName;
-        if (newName === '') {
-            newName = newPath.at(-1);
-            newPath.pop();
-        }
-        SEPARATORS.forEach((separator) => {
-            value = value.replace((new RegExp(path.join(separator.lib) + separator.control + controlName, 'g')), newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName);
-        });
-        return value;
     }
     replaceControls(str, config) {
         let value = str;
@@ -335,7 +187,7 @@ class Replacer {
                     else {
                         this.errors.push({
                             fileName: config.thisContext,
-                            comment: `Не удалось удалить класс ${config.varName}, так как у него используются вложенные элементы!`,
+                            comment: `Не удалось удалить класс ${config.varName}, так как у него есть вложенные элементы!`,
                             date: (new Date())
                         });
                     }
@@ -372,25 +224,190 @@ class Replacer {
     customReplace(str, config) {
         return str.replace((new RegExp(config.reg, config.flag || 'g')), config.replace);
     }
+    importParse(str, controlName, moduleName) {
+        const importsValue = Replacer.getImportMatch(moduleName, str);
+        if (importsValue.length) {
+            const paths = [];
+            importsValue.forEach((importValue) => {
+                if (importValue[1]) {
+                    const correctImport = importValue[1].replace(/[\n|}|{]/g, ' ');
+                    const names = correctImport.split(',').map((val) => val.trim());
+                    names.forEach((name) => {
+                        const value = name.split(' ');
+                        for (let i = 0; i < value.length; i++) {
+                            const path = {
+                                name: '',
+                                control: '',
+                                lib: '',
+                                fullImport: importValue[0],
+                                importNames: importValue[1],
+                                importsList: names
+                            };
+                            if (value[i] === controlName) {
+                                if (value[i + 1] === 'as') {
+                                    path.name = value[i + 2];
+                                    path.control = controlName;
+                                }
+                                else {
+                                    if (value[i - 1] !== 'as') {
+                                        path.name = controlName;
+                                        path.control = controlName;
+                                    }
+                                }
+                            }
+                            else if (value[i] === '*') {
+                                if (value[i + 1] === 'as') {
+                                    path.control = controlName;
+                                    path.lib = value[i + 2];
+                                }
+                            }
+                            if (path.name || path.lib || path.control) {
+                                paths.push(path);
+                            }
+                        }
+                    });
+                }
+            });
+            return paths;
+        }
+        return null;
+    }
+    updateImport(str, importReplacer, config) {
+        if (config.moduleName === config.newModuleName) {
+            return str;
+        }
+        let value = str;
+        const match = Replacer.getImportMatch(config.newModuleName, str);
+        if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
+            value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')), '\'' + (config.newModule || config.newModuleName) + '\'');
+        }
+        else {
+            const imports = [];
+            let startSeparator = '';
+            let endSeparator = '';
+            if (importReplacer.name) {
+                importReplacer.importNames.split(',').forEach(imp => {
+                    if (!(new RegExp(`\\b${importReplacer.control}\\b`)).test(imp)) {
+                        imports.push(imp);
+                    }
+                    else {
+                        if (imp.includes('{')) {
+                            startSeparator = ' {';
+                        }
+                        if (imp.includes('}')) {
+                            endSeparator = '} ';
+                        }
+                    }
+                });
+                value = value.replace(importReplacer.importNames, startSeparator + imports.join(', ') + endSeparator);
+                if (match.length) {
+                    value = Replacer.addedInImport(value, match, importReplacer);
+                }
+                else {
+                    let newImport = `\'${config.moduleName}\'`;
+                    if (config.controlName) {
+                        newImport += `;\nimport {${importReplacer.control}${importReplacer.control !== importReplacer.name ? (' as ' + importReplacer.name) : ''}} from '${config.newModuleName}';`;
+                    }
+                    value = value.replace((new RegExp('("|\')' + config.moduleName + '("|\')')), newImport);
+                    value = value.replace(';;', ';');
+                }
+            }
+            else {
+                this.errors.push({
+                    fileName: config.thisContext,
+                    comment: `Используется сложный импорт(import * as ${importReplacer.lib} from \'${config.moduleName}\')! Не знаю как его правильно обработать!`,
+                    date: (new Date())
+                });
+            }
+        }
+        let emptyImportMatch = Replacer.getImportMatch(config.moduleName, value);
+        if (emptyImportMatch.length) {
+            const emptyValue = emptyImportMatch[0][1].replace(/\n/g, '').trim();
+            if (emptyValue === '' || emptyValue === '{}') {
+                value = value.replace(emptyImportMatch[0][0] + '\n', '');
+            }
+        }
+        return value;
+    }
+    importReplacer(str, config) {
+        const { controlName, newControlName, moduleName } = config;
+        const importsReplacer = this.importParse(str, controlName, moduleName);
+        if (importsReplacer) {
+            let value = str;
+            importsReplacer.forEach((importReplacer) => {
+                let reg = (new RegExp(importReplacer.control));
+                if (!importReplacer.name) {
+                    reg = (new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g'));
+                }
+                if (reg.test(str)) {
+                    value = this.updateImport(value, importReplacer, config);
+                    if (importReplacer.name) {
+                        if (newControlName) {
+                            if (importReplacer.name === importReplacer.control) {
+                                value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b([^(/|\'|\")])', 'g')), newControlName + '$1');
+                                value = value.replace((new RegExp('\\b' + importReplacer.control + '\\b/>', 'g')), newControlName + '/>');
+                            }
+                            else {
+                                value = value.replace((new RegExp('([^(.|/|:)])\\b' + importReplacer.control + '\\b([^(.|/|:)])')), '$1' + newControlName + '$2');
+                            }
+                        }
+                        else {
+                            const reg = (new RegExp('\\b' + importReplacer.control + '\\b'));
+                            if (importReplacer.name === importReplacer.control) {
+                                value = value.replace(reg, ('default as ' + controlName));
+                            }
+                            else {
+                                value = value.replace(reg, ('default'));
+                            }
+                        }
+                    }
+                    else {
+                        value = value.replace((new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g')), importReplacer.lib + '.' + newControlName);
+                    }
+                }
+            });
+            if (value !== str) {
+                const reg = /import(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/umg;
+                const imports = [...value.matchAll(reg)];
+                imports.forEach((imp) => {
+                    if (imp[1] && imp[0].includes('{') && imp[0].includes('}')) {
+                        let importName = imp[1]
+                            .replace(/[{|}]/g, '')
+                            .split(',')
+                            .map((res) => {
+                            return res.trim();
+                        })
+                            .join(', ');
+                        const replaceValue = imp[0].replace(imp[1], ` { ${importName} } `);
+                        value = value.replace(imp[0], replaceValue);
+                    }
+                });
+            }
+            return value;
+        }
+        return str;
+    }
+    textReplacer(str, config) {
+        const { controlName, newControlName, moduleName, newModuleName } = config;
+        const path = moduleName.split('/');
+        const newPath = newModuleName.split('/');
+        let value = str;
+        let newName = newControlName;
+        if (newName === '') {
+            newName = newPath.at(-1);
+            newPath.pop();
+        }
+        SEPARATORS.forEach((separator) => {
+            value = value.replace((new RegExp(path.join(separator.lib) + separator.control + controlName, 'g')), newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName);
+        });
+        return value;
+    }
     clearErrors() {
         this.errors = [];
     }
     getErrors() {
         return this.errors;
     }
-}
-
-function log(str) {
-    console.log(str);
-}
-function success(str) {
-    console.log('\x1b[32m', str, '\x1b[0m');
-}
-function warning(str) {
-    console.log('\x1b[33m', str, '\x1b[0m');
-}
-function error(str) {
-    console.log('\x1b[31m', str, '\x1b[0m');
 }
 
 var TypeReplacer;
@@ -431,6 +448,13 @@ class Script {
     _optionsReplace(replace, newFileContent) {
         return this.replacer.replaceOptions(newFileContent, replace);
     }
+    static getCorrectParam(param) {
+        return {
+            path: param.path,
+            replaces: param.replaces,
+            maxFileSize: param.maxFileSize ?? 50
+        };
+    }
     script(param, path, type = TypeReplacer.Controls) {
         const dirs = FileUtils.getDirs(path);
         dirs.forEach((dir) => {
@@ -445,7 +469,7 @@ class Script {
                 try {
                     const size = FileUtils.fileSize(newPath, 'mb');
                     if (size < param.maxFileSize) {
-                        const fileContent = FileUtils.fread(newPath);
+                        const fileContent = FileUtils.read(newPath);
                         let newFileContent = fileContent;
                         param.replaces.forEach((replace) => {
                             switch (type) {
@@ -465,26 +489,9 @@ class Script {
                         });
                         if (fileContent !== newFileContent) {
                             success(`Обновляю файл: ${newPath}`);
-                            FileUtils.fwrite(newPath, newFileContent);
+                            FileUtils.write(newPath, newFileContent);
                         }
                         else {
-                            if (type === TypeReplacer.Controls) {
-                                param.replaces.forEach((replace) => {
-                                    if (fileContent.includes(replace.module)) {
-                                        for (let i = 0; i < replace.controls.length; i++) {
-                                            const findName = replace.controls[i].name;
-                                            if (!findName || fileContent.includes(findName)) {
-                                                this.errors.push({
-                                                    fileName: newPath,
-                                                    comment: 'Найдены вхождения для модуля "' + replace.module + '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
-                                                    date: (new Date())
-                                                });
-                                                break;
-                                            }
-                                        }
-                                    }
-                                });
-                            }
                         }
                     }
                     else {
@@ -507,23 +514,6 @@ class Script {
             }
         });
     }
-    saveLog() {
-        const errorDir = './errors';
-        if (!FileUtils.isDir(errorDir)) {
-            FileUtils.mkDir(errorDir);
-        }
-        let errorContent = '';
-        this.errors.forEach(error => {
-            errorContent += '\n===========================================================================';
-            errorContent += '\n\tДата: ' + error.date;
-            errorContent += '\n\tФайл: ' + error.fileName;
-            errorContent += '\n\tОписание: ' + error.comment;
-            errorContent += '\n===========================================================================\n';
-        });
-        const fileName = Date.now();
-        FileUtils.fwrite((`${errorDir}/${fileName}.log`), errorContent, 'w');
-        warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
-    }
     run(param, type = TypeReplacer.Controls) {
         log('script start');
         log('=================================================================');
@@ -538,13 +528,22 @@ class Script {
         log('=================================================================');
         log('script end');
     }
-    static getCorrectParam(param) {
-        const correctParam = {
-            path: param.path,
-            replaces: param.replaces,
-            maxFileSize: param.maxFileSize ?? 50
-        };
-        return correctParam;
+    saveLog() {
+        const errorDir = './errors';
+        if (!FileUtils.isDir(errorDir)) {
+            FileUtils.mkDir(errorDir);
+        }
+        let errorContent = '';
+        this.errors.forEach(error => {
+            errorContent += '\n===========================================================================';
+            errorContent += '\n\tДата: ' + error.date;
+            errorContent += '\n\tФайл: ' + error.fileName;
+            errorContent += '\n\tОписание: ' + error.comment;
+            errorContent += '\n===========================================================================\n';
+        });
+        const fileName = Date.now();
+        FileUtils.write((`${errorDir}/${fileName}.log`), errorContent, 'w');
+        warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
     }
 }
 
@@ -667,7 +666,7 @@ function getType(value) {
 if (argv[2]) {
     if (argv[2].indexOf('.json') !== -1) {
         if (FileUtils.isFile(argv[2])) {
-            const param = JSON.parse(FileUtils.fread(argv[2]));
+            const param = JSON.parse(FileUtils.read(argv[2]));
             if (param.path) {
                 script.run(param);
             }
@@ -686,7 +685,7 @@ if (argv[2]) {
             case 'cssReplace':
                 if (argv[3].indexOf('.json') !== -1) {
                     if (FileUtils.isFile(argv[3])) {
-                        const param = JSON.parse(FileUtils.fread(argv[3]));
+                        const param = JSON.parse(FileUtils.read(argv[3]));
                         const type = getType(argv[2]);
                         if (param.path) {
                             script.run(param, type);
@@ -716,7 +715,7 @@ if (argv[2]) {
             case 'resetGit':
                 if (argv[3].indexOf('.json') !== -1) {
                     if (FileUtils.isFile(argv[3])) {
-                        const param = JSON.parse(FileUtils.fread(argv[3]));
+                        const param = JSON.parse(FileUtils.read(argv[3]));
                         if (param.path) {
                             log('=== start ===');
                             resetGit(param.path);

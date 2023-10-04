@@ -40,8 +40,8 @@ export interface IParam<R extends IReplace | IReplaceOpt | ICustomReplace | ICSS
 }
 
 export interface IConfig {
-    controlName: string,
-    newControlName: string,
+    controlName: string;
+    newControlName: string;
     moduleName: string;
     newModuleName: string;
     newModule?: string;
