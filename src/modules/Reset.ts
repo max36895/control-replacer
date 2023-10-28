@@ -1,29 +1,29 @@
-import * as childProcess from 'child_process';
-import { EXCLUDE_DIRS } from './Script';
-import { FileUtils } from './FileUtils';
+import * as childProcess from "child_process";
+import { EXCLUDE_DIRS } from "./Script";
+import { FileUtils } from "./FileUtils";
 
-const REP_FILES = ['README.md', 'package.json', '.gitignore'];
+const REP_FILES = ["README.md", "package.json", ".gitignore"];
 
 export function resetGit(path: string): void {
-    const dirs = FileUtils.getDirs(path);
-    let isRep = false;
-    dirs.forEach(dir => {
-        if (REP_FILES.includes(dir)) {
-            isRep = true;
-        }
-    });
-    if (isRep) {
-        childProcess.execSync(`cd ${path} && git reset --hard`);
-        return;
-    } else {
-        dirs.forEach((dir) => {
-            const newPath = path + '/' + dir;
-            if (EXCLUDE_DIRS.includes(dir)) {
-                return;
-            }
-            if (FileUtils.isDir(newPath)) {
-                resetGit(newPath);
-            }
-        });
+  const dirFiles = FileUtils.getDirs(path);
+  let isRep = false;
+  dirFiles.forEach((dirFile) => {
+    if (REP_FILES.includes(dirFile)) {
+      isRep = true;
     }
+  });
+  if (isRep) {
+    childProcess.execSync(`cd ${path} && git reset --hard HEAD~`);
+    return;
+  } else {
+    dirFiles.forEach((dirFile) => {
+      const newPath = path + "/" + dirFile;
+      if (EXCLUDE_DIRS.includes(dirFile)) {
+        return;
+      }
+      if (FileUtils.isDir(newPath)) {
+        resetGit(newPath);
+      }
+    });
+  }
 }

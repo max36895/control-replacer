@@ -1,17 +1,18 @@
 # Скрипт для автозамены
 
-Скрипт предназначен для замены всех вхождений контролов, когда он переносится из одного модуля в другой, либо
-переименовывается. Также скрипт позволяет переименовать нужную опцию у контрола, переименовать/удалить css переменную
-или класс, передать свою настройку для замены.
+Скрипт предназначен для замены всех вхождений контролов, когда они переносится из одного модуля в другой, либо
+переименовывается. Также скрипт позволяет переносить утилиты, переименовать нужную опцию у контрола, переименовать/удалить css переменнуюили класс и позволяет передать свою настройку для замены.
+
+Также есть возможность исправить проблему, когда был запущен [скрипт массовой обработки git-репозиториев](https://wi.sbis.ru/doc/platform/developmentapl/development-tools/scripts/), но по какой-то причине ему не удалось запушить изменения. При повторном запуске скрипта, ничего не происходило. Чтобы исправить эту проблему нужно запусть этот скрипт с флагом `fixCommit`
 
 Готовый скрипт можно скачать из репозитория, либо собрать самому. Для этого нужно скачать проект, выполнить `npm i`
 и `npm run build`
 
 ## Как работает
 
-Необходимо запустить файл `dist/replacer.js`, а также подготовить json файл с настройкой для скрипта
+Необходимо запустить файл `dist/replacer.js`, а также подготовить json файл с настройкой.
 
-## Запуск
+## Запуск скрипта
 
 Переименовывания контролов:
 
@@ -19,7 +20,7 @@
 node replacer.js config.json
 ```
 
-Переименовывания опций:
+Переименовывания опций контрола:
 
 ```bash
 node replacer.js replaceOpt config.json
@@ -43,6 +44,12 @@ node replacer.js customReplace config.json
 node replacer.js resetGit config.json
 ```
 
+Сброс коммита, на случай когда нужно перезапустить скрипт для создания mr:
+
+```bash
+node replacer.js fixCommit config.json
+```
+
 ## JSON файл настроек
 
 ### Описание
@@ -60,7 +67,7 @@ node replacer.js resetGit config.json
         {
           "name": "Текущее имя контрола",
           "newName": "Новое имя контрола. Если контрол не переименовывается, то свойство указывать не нужно",
-          "newModuleName": "Новое имя модуля"
+          "newModuleName": "Новое имя модуляю Стоит указывать если из модуля выносится 1 определенный контрол"
         }
       ]
     }
@@ -93,7 +100,7 @@ node replacer.js resetGit config.json
   "path": "Путь к репозиториям, где нужно выполнить замену",
   "replaces": [
     {
-      "varName": "Текущее имя переменной или класса",
+      "varName": "Текущее имя переменной или класса. Важно указывать имя css переменной полностью(--css-var), а класс указывать с '.'",
       "newVarName": "Новое имя переменной или класса",
       "isRemove": "Класс или переменная полностью удаляется"
     }
@@ -121,13 +128,32 @@ node replacer.js resetGit config.json
 При кастомной замене стоит правильно указывать значение в replace. Замена осуществляется следующим образом:
 
 ```js
-str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
+str.replace(new RegExp(congig.reg, config.flag || "g"), config.replace);
 ```
 
-Для сброса правок, можно указать любой их указанных выше файлов конфигурации. Либо создать отдельный, но важно чтобы
-было указано поле `path`
+Для режимов resetGit и fixCommit, можно указать любой их указанных выше файлов конфигурации. Либо создать отдельный, но важно чтобы было указано поле `path`.
 
 ### Примеры файлов конфигурации
+
+Замена утилиты `Controls/utils:oldUtil` на `Controls/newUtils:newUtil`
+
+```json
+{
+  "path": "",
+  "replaces": [
+    {
+      "module": "Controls/utils",
+      "controls": [
+        {
+          "name": "oldUtils",
+          "newName": "newUtil",
+          "newModuleName": "Controls/newUtils"
+        }
+      ]
+    }
+  ]
+}
+```
 
 Замена `Controls/buttons:ArrowButton` на `Controls/extButtons:ArrowButton`
 
@@ -146,7 +172,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
     }
   ]
 }
- ```
+```
 
 Замена `Controls/toggle:Tumbler` на `Controls/toggle:NewTumbler`
 
@@ -184,7 +210,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
     }
   ]
 }
- ```
+```
 
 Замена `Controls/toggle:Tumbler` на `Controls-toggle/Tumbler`. Обратите внимание на `newName`, если свойство не
 указывать, то произойдет переименование модуля(`Controls-toggle/Tumbler:Tumbler`), но при указании пустой строки,
@@ -206,7 +232,7 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
     }
   ]
 }
- ```
+```
 
 Замена опции `myClassName` на `className` у контрола `Controls/toggle:Toggle`
 
@@ -242,21 +268,21 @@ str.replace((new RegExp(congig.reg, config.flag || 'g')), config.replace);
 Корректно обрабатываются следующие сценарии:
 
 ```js
-import {Tumbler} from 'Controls/toggle';
+import { Tumbler } from "Controls/toggle";
 
-<Tumbler/>
+<Tumbler />;
 ```
 
 ```js
-import {Tumbler as View} from 'Controls/toggle';
+import { Tumbler as View } from "Controls/toggle";
 
-<View/>
+<View />;
 ```
 
 ```js
-import {default as toggle} from 'Controls/toggle';
+import { default as toggle } from "Controls/toggle";
 
-<toggle.Tumbler/>
+<toggle.Tumbler />;
 ```
 
 ```js
@@ -277,7 +303,7 @@ import {Tumbler, Switch} from 'Controls/toggle';
 Сейчас есть проблемы с импортом следующего вида:
 
 ```js
-import * as toggle from 'Controls/toggle';
+import * as toggle from "Controls/toggle";
 ```
 
 Скрипт самостоятельно не сможет обработать подобные сценарии, на что кинет ошибку. Но при этом скрипт сможет внести
@@ -306,7 +332,7 @@ import * as toggle from 'Controls/toggle';
 Скрипт не сможет обработать случаи, когда контрол вставляется в другой контрол в качестве шаблона с передачей опций.
 
 ```js
-<Async templateName="Controls.toggle:Tumblet" templateOptions="{optionName: ...}"/>
+<Async templateName="Controls.toggle:Tumblet" templateOptions="{optionName: ...}" />
 ```
 
 и
@@ -320,7 +346,7 @@ import * as toggle from 'Controls/toggle';
 Также не отработают случай с использование spread оператора
 
 ```js
-<Tumbler {...{optionName: '...'}}/>
+<Tumbler {...{ optionName: "..." }} />
 ```
 
 ## Что не корректно работает с переименовыванием классов
@@ -338,11 +364,11 @@ import * as toggle from 'Controls/toggle';
 
 ```less
 .removeClass {
-   /* ... */
+  /* ... */
 
-   .template {
-      /* ... */
-   }
+  .template {
+    /* ... */
+  }
 }
 ```
 
