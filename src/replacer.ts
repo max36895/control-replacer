@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { ICustomReplace, IParam, IReplace, IReplaceOpt } from "./interfaces/IConfig";
 import { Script, TypeReplacer } from "./modules/Script";
-import { FileUtils } from "./modules/FileUtils";
+import { FileUtils } from "./utils/FileUtils";
 import { error, log } from "./modules/logger";
 import { resetGit } from "./modules/Reset";
 import { fixCommit } from "./modules/FixCommit";

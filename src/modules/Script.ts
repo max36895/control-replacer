@@ -1,5 +1,5 @@
 import { error, log, success, warning } from "./logger";
-import { FileUtils } from "./FileUtils";
+import { FileUtils } from "../utils/FileUtils";
 import { Replacer } from "./Replacer";
 import { IContext, ICSSReplace, ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
 

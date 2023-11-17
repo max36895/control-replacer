@@ -549,34 +549,8 @@ class Script {
     }
 }
 
-const REP_FILES$1 = ["README.md", "package.json", ".gitignore"];
-function resetGit(path) {
-    const dirFiles = FileUtils.getDirs(path);
-    let isRep = false;
-    dirFiles.forEach((dirFile) => {
-        if (REP_FILES$1.includes(dirFile)) {
-            isRep = true;
-        }
-    });
-    if (isRep) {
-        childProcess__namespace.execSync(`cd ${path} && git reset --hard HEAD~`);
-        return;
-    }
-    else {
-        dirFiles.forEach((dirFile) => {
-            const newPath = path + "/" + dirFile;
-            if (EXCLUDE_DIRS.includes(dirFile)) {
-                return;
-            }
-            if (FileUtils.isDir(newPath)) {
-                resetGit(newPath);
-            }
-        });
-    }
-}
-
 const REP_FILES = ["README.md", "package.json", ".gitignore"];
-function fixCommit(path) {
+function executeInRep(path, cb) {
     const dirFiles = FileUtils.getDirs(path);
     let isRep = false;
     dirFiles.forEach((dirFile) => {
@@ -585,11 +559,7 @@ function fixCommit(path) {
         }
     });
     if (isRep) {
-        const gitStatus = childProcess__namespace.execSync(`cd ${path} && git status`);
-        if (gitStatus.toString().includes('use "git push"')) {
-            childProcess__namespace.execSync(`cd ${path} && git reset --soft HEAD~`);
-            success(`Коммит по пути: ${path} успешно отменен`);
-        }
+        cb(path);
         return;
     }
     else {
@@ -599,10 +569,26 @@ function fixCommit(path) {
                 return;
             }
             if (FileUtils.isDir(newPath)) {
-                fixCommit(newPath);
+                executeInRep(newPath, cb);
             }
         });
     }
+}
+
+function resetGit(dir) {
+    executeInRep(dir, (path) => {
+        childProcess__namespace.execSync(`cd ${path} && git reset --hard HEAD~`);
+    });
+}
+
+function fixCommit(dir) {
+    executeInRep(dir, (path) => {
+        const gitStatus = childProcess__namespace.execSync(`cd ${path} && git status`);
+        if (gitStatus.toString().includes('use "git push"')) {
+            childProcess__namespace.execSync(`cd ${path} && git reset --soft HEAD~`);
+            success(`Коммит по пути: ${path} успешно отменен`);
+        }
+    });
 }
 
 const script = new Script();
