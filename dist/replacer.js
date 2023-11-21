@@ -412,7 +412,6 @@ class Replacer {
         }
         SEPARATORS.forEach((separator) => {
             if (newName === '*') {
-                console.log(newPath.join(separator.lib));
                 if (separator.control === ':') {
                     return;
                 }
