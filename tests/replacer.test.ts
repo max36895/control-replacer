@@ -195,6 +195,28 @@ import { Async } from 'Controls/Async';
             </>)
         }`,
   },
+  {
+    name: "full replace 2",
+    start: `import { default as Input } from 'Name/Input';
+import {Button} from 'Name/buttons';
+import {Async} from 'Controls/Async';
+        export default function Control(props: object){<Name.Input />}`,
+    end: `import { default as Input } from 'Controls-Name/Input';
+import {Button} from 'Name/buttons';
+import {Async} from 'Controls/Async';
+        export default function Control(props: object){<Controls-Name.Input />}`,
+  },
+  {
+    name: "full replace 3",
+    start: `import { Kek } from 'Name/Input';
+import {Button} from 'Name/buttons';
+import {Async} from 'Controls/Async';
+        export default function Control(props: object){<Name.Input:Kek />}`,
+    end: `import { Kek } from 'Controls-Name/Input';
+import {Button} from 'Name/buttons';
+import {Async} from 'Controls/Async';
+        export default function Control(props: object){<Controls-Name.Input:Kek />}`,
+  }
 ];
 
 const replaceOptions = [
@@ -317,6 +339,14 @@ describe("Replacer", () => {
     const param: IParam<IReplace> = Script.getCorrectParam({
       path: ".\\test",
       replaces: [
+        {
+          module: "Name/Input",
+          controls: [{
+            name: '*',
+            newModuleName: "Controls-Name/Input",
+          }
+          ]
+        },
         {
           module: "Controls/utils",
           controls: [

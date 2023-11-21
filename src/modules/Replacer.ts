@@ -354,7 +354,10 @@ export class Replacer {
    * @private
    */
   private importReplacer(str: string, config: IConfig & IContext): string {
-    const { controlName, newControlName, moduleName } = config;
+    const {controlName, newControlName, moduleName} = config;
+    if (controlName === '*') {
+      return str.replace(new RegExp("(\"|')" + moduleName + "(\"|')", "g"), "'" + config.newModuleName + "'")
+    }
     const importsReplacer = this.importParse(str, controlName, moduleName);
     if (importsReplacer) {
       let value = str;
@@ -443,9 +446,19 @@ export class Replacer {
     }
 
     SEPARATORS.forEach((separator) => {
+      if (newName === '*') {
+        console.log(newPath.join(separator.lib));
+        if (separator.control === ':') {
+          return;
+        }
+      }
+      const replace = (newName === '*' ? '(<|\"|\'|/)' : '')
+          + path.join(separator.lib)
+          + ((controlName === '*') ? '' : (separator.control + controlName));
+      const replacer = newName === '*' ? "$1" + newPath.join(separator.lib) : newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName
       value = value.replace(
-        new RegExp(path.join(separator.lib) + separator.control + controlName, "g"),
-        newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName
+          new RegExp(replace, "g"),
+          replacer
       );
     });
 
