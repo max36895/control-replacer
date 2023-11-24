@@ -216,6 +216,23 @@ import {Async} from 'Controls/Async';
 import {Button} from 'Name/buttons';
 import {Async} from 'Controls/Async';
         export default function Control(props: object){<Controls-Name.Input:Kek />}`,
+  },
+  {
+    name: "full replace 4",
+    start: `import { Control, IControlOptions, TemplateFunction } from 'UI/Base';
+import * as template from 'wml!Recruitment/CandidateRelationTheme/_stageSelector/Combobox';
+import { Sources } from 'Recruitment/CandidateRelationTheme/utils';
+import { SbisService } from 'Types/source';
+import { Combobox as ComboBox } from 'Controls/dropdown';
+
+type Key = string | number;`,
+    end: `import { Control, IControlOptions, TemplateFunction } from 'UI/Base';
+import * as template from 'wml!Recruitment/CandidateRelationTheme/_stageSelector/Combobox';
+import { Sources } from 'Recruitment/CandidateRelationTheme/utils';
+import { SbisService } from 'Types/source';
+import { default as ComboBox } from 'Controls/ComboBox';
+
+type Key = string | number;`,
   }
 ];
 
@@ -339,6 +356,16 @@ describe("Replacer", () => {
     const param: IParam<IReplace> = Script.getCorrectParam({
       path: ".\\test",
       replaces: [
+        {
+          "module": "Controls/dropdown",
+          "controls": [
+            {
+              "name": "Combobox",
+              "newName": "",
+              "newModuleName": "Controls/ComboBox"
+            }
+          ]
+        },
         {
           module: "Name/Input",
           controls: [{

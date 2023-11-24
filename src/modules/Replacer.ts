@@ -286,7 +286,6 @@ export class Replacer {
 
     let value = str;
     const match = Replacer.getImportMatch(config.newModuleName, str);
-
     if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
       value = value.replace(
         new RegExp("(\"|')" + config.moduleName + "(\"|')"),
@@ -386,12 +385,22 @@ export class Replacer {
                 );
               }
             } else {
-              const reg = new RegExp("\\b" + importReplacer.control + "\\b");
-              if (importReplacer.name === importReplacer.control) {
-                // опасная штука, но по другому пока никак
-                value = value.replace(reg, "default as " + controlName);
+              const replaceReg = new RegExp("\\b" + importReplacer.control + "\\b");
+              const rValue = importReplacer.name === importReplacer.control ? `default as ${controlName}` : 'default';
+              const updateImportReplacer = this.importParse(value, importReplacer.control, config.newModuleName);
+              if (updateImportReplacer && updateImportReplacer.length) {
+                const replaceValue = updateImportReplacer[0].fullImport.replace(replaceReg, rValue);
+                const reg = new RegExp(updateImportReplacer[0].fullImport);
+                value = value.replace(reg, replaceValue);
               } else {
-                value = value.replace(reg, "default");
+                if (importReplacer.name === importReplacer.control) {
+                  // опасная штука, но по другому пока никак
+                  value = value.replace(reg, `default as ${controlName}`);
+                } else {
+                  const replaceValue = importReplacer.importNames.replace(replaceReg, rValue);
+                  const reg = new RegExp(importReplacer.importNames);
+                  value = value.replace(reg, replaceValue);
+                }
               }
             }
           } else {
@@ -451,7 +460,7 @@ export class Replacer {
           return;
         }
       }
-      const replace = (newName === '*' ? '(<|\"|\'|/)' : '')
+      const replace = (newName === '*' ? '(<|\"|\'|/|!)' : '')
           + path.join(separator.lib)
           + ((controlName === '*') ? '' : (separator.control + controlName));
       const replacer = newName === '*' ? "$1" + newPath.join(separator.lib) : newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName
