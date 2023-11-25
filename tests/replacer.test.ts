@@ -233,7 +233,7 @@ import { SbisService } from 'Types/source';
 import { default as ComboBox } from 'Controls/ComboBox';
 
 type Key = string | number;`,
-  }
+  },
 ];
 
 const replaceOptions = [
@@ -350,6 +350,54 @@ const replaceCSS = [
   },
 ];
 
+const removeModule = [
+  {
+    name: "remove in control-name is *",
+    start: 'import {default as Name, IName} from "Name/Input"',
+    end: "import {default as Name, IName} from 'Controls-Name/Input'",
+  },
+  {
+    name: "remove in module use *",
+    start: 'import {default as Name, IName} from "NameView/Input"',
+    end: 'import {default as Name, IName} from "Controls-NameView/Input"',
+  },
+  {
+    name: "remove in multi module use *",
+    start: `import {default as Name, IName} from "NameView/Input"
+    import {default as Input} from "NameNot/Input"
+    import {INameProps} from "NameView/interface"`,
+    end: `import {default as Name, IName} from "Controls-NameView/Input"
+    import {default as Input} from "NameNot/Input"
+    import {INameProps} from "Controls-NameView/interface"`,
+  },
+  {
+    name: "remove all",
+    start: `import {default as Name, IName} from "NameView/Input"
+    import {default as Input} from "Name/Input"
+    import {INameProps} from "NameView/interface"`,
+    end: `import {default as Name, IName} from "Controls-NameView/Input"
+    import {default as Input} from \'Controls-Name/Input\'
+    import {INameProps} from "Controls-NameView/interface"`,
+  },
+  {
+    name: "remove control name is * in wml",
+    start: `<Name.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Name/Input"/>`,
+    end: `<Controls-Name.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Controls-Name/Input"/>`,
+  },
+  {
+    name: "remove module use * in wml",
+    start: `<NameView.Input/> <NameView.Not /> <NameStar.Input /> <partial template="wml!NameView/Input"/>`,
+    end: `<Controls-NameView.Input/> <Controls-NameView.Not /> <NameStar.Input /> <partial template="wml!Controls-NameView/Input"/>`,
+  },
+  {
+    name: "remove module and name used *",
+    start: `<Name.Input/> <NameView.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Name/Input"/>
+    <NameView.Input/> <Name.Input/> <NameView.Not /> <NameStar.Input /> <partial template="wml!NameView/Input"/>`,
+    end: `<Controls-Name.Input/> <Controls-NameView.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Controls-Name/Input"/>
+    <Controls-NameView.Input/> <Controls-Name.Input/> <Controls-NameView.Not /> <NameStar.Input /> <partial template="wml!Controls-NameView/Input"/>`,
+  },
+];
+
 describe("Replacer", () => {
   describe("replacer control", () => {
     const replacer = new Replacer();
@@ -357,22 +405,23 @@ describe("Replacer", () => {
       path: ".\\test",
       replaces: [
         {
-          "module": "Controls/dropdown",
-          "controls": [
+          module: "Controls/dropdown",
+          controls: [
             {
-              "name": "Combobox",
-              "newName": "",
-              "newModuleName": "Controls/ComboBox"
-            }
-          ]
+              name: "Combobox",
+              newName: "",
+              newModuleName: "Controls/ComboBox",
+            },
+          ],
         },
         {
           module: "Name/Input",
-          controls: [{
-            name: '*',
-            newModuleName: "Controls-Name/Input",
-          }
-          ]
+          controls: [
+            {
+              name: "*",
+              newModuleName: "Controls-Name/Input",
+            },
+          ],
         },
         {
           module: "Controls/utils",
@@ -539,6 +588,64 @@ describe("Replacer", () => {
         let content = test.start;
         param.replaces.forEach((replace) => {
           content = replacer.cssReplace(content, replace as ICSSReplace & IContext);
+        });
+        expect(content).toEqual(test.end);
+      });
+    });
+  });
+
+  describe("remove control", () => {
+    const replacer = new Replacer();
+    const param: IParam<IReplace> = Script.getCorrectParam({
+      path: ".\\test",
+      replaces: [
+        {
+          module: "Name/Input",
+          controls: [
+            {
+              name: "*",
+              newModuleName: "Controls-Name/Input",
+            },
+          ],
+        },
+        {
+          module: "NameView/*",
+          controls: [
+            {
+              name: "",
+              newModuleName: "Controls-NameView/*",
+            },
+          ],
+        },
+      ],
+    }) as IParam<IReplace>;
+
+    removeModule.forEach((test) => {
+      it(`replacer: ${test.name}`, () => {
+        let content = test.start;
+        param.replaces.forEach((replace) => {
+          const moduleName = replace.module;
+          replace.controls.forEach((control) => {
+            const controlName = control.name;
+            if (control.newName || control.newModuleName) {
+              let newControlName = control.newName;
+              if (typeof newControlName === "undefined") {
+                newControlName = controlName;
+              }
+              let newModuleName = control.newModuleName;
+              if (typeof newModuleName === "undefined") {
+                newModuleName = moduleName;
+              }
+              content = replacer.replaceControls(content, {
+                controlName,
+                newControlName,
+                moduleName,
+                newModuleName,
+                newModule: replace.newModule,
+                thisContext: "test",
+              });
+            }
+          });
         });
         expect(content).toEqual(test.end);
       });

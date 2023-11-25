@@ -340,8 +340,13 @@ class Replacer {
     }
     importReplacer(str, config) {
         const { controlName, newControlName, moduleName } = config;
-        if (controlName === '*') {
+        if (controlName === "*") {
             return str.replace(new RegExp("(\"|')" + moduleName + "(\"|')", "g"), "'" + config.newModuleName + "'");
+        }
+        if (moduleName[moduleName.length - 1] === "*") {
+            const correctModuleName = moduleName.replace("/*", "");
+            const correctNewModuleName = config.newModuleName.replace("/*", "");
+            return str.replace(new RegExp("(\"|')" + correctModuleName, "g"), "$1" + correctNewModuleName);
         }
         const importsReplacer = this.importParse(str, controlName, moduleName);
         if (importsReplacer) {
@@ -366,7 +371,7 @@ class Replacer {
                         }
                         else {
                             const replaceReg = new RegExp("\\b" + importReplacer.control + "\\b");
-                            const rValue = importReplacer.name === importReplacer.control ? `default as ${controlName}` : 'default';
+                            const rValue = importReplacer.name === importReplacer.control ? `default as ${controlName}` : "default";
                             const updateImportReplacer = this.importParse(value, importReplacer.control, config.newModuleName);
                             if (updateImportReplacer && updateImportReplacer.length) {
                                 const replaceValue = updateImportReplacer[0].fullImport.replace(replaceReg, rValue);
@@ -422,16 +427,23 @@ class Replacer {
             newPath.pop();
         }
         SEPARATORS.forEach((separator) => {
-            if (newName === '*') {
-                if (separator.control === ':') {
+            if (newName === "*") {
+                if (separator.control === ":") {
                     return;
                 }
             }
-            const replace = (newName === '*' ? '(<|\"|\'|/|!)' : '')
-                + path.join(separator.lib)
-                + ((controlName === '*') ? '' : (separator.control + controlName));
-            const replacer = newName === '*' ? "$1" + newPath.join(separator.lib) : newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName;
-            value = value.replace(new RegExp(replace, "g"), replacer);
+            if (newName === "*" || moduleName[moduleName.length - 1] === "*") {
+                const correctPath = moduleName.replace("/*", "").split("/");
+                const correctNewPath = newModuleName.replace("/*", "").split("/");
+                const replace = "(<|\"|'|/|!)" + correctPath.join(separator.lib);
+                const replacer = "$1" + correctNewPath.join(separator.lib);
+                value = value.replace(new RegExp(replace, "g"), replacer);
+            }
+            else {
+                const replace = path.join(separator.lib) + separator.control + controlName;
+                const replacer = newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName;
+                value = value.replace(new RegExp(replace, "g"), replacer);
+            }
         });
         return value;
     }

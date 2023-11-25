@@ -55,6 +55,7 @@ node replacer.js fixCommit config.json
 ### Описание
 
 Описание файла конфигурации для переименовывания контролов:
+Если модуль полностью переносится, то можно использовать сокращенную запись для module и controls[i].newModuleName, указав /\* в конце. Например Name переносится в Controls-Name, тогда module: "Name/\*", а controls[i].newModuleName: "Controls-Name/\*"
 
 ```json
 {
@@ -155,6 +156,43 @@ str.replace(new RegExp(congig.reg, config.flag || "g"), config.replace);
 }
 ```
 
+Перенос всего модуля из одного места в другое. Например: `Name/*` в `Controls-Name/*`
+
+```json
+{
+  "path": "",
+  "replaces": [
+    {
+      "module": "Name/*",
+      "controls": [
+        {
+          "name": "",
+          "newModuleName": "Controls-Name/*"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Перенос отдельных частей модуля из одного места в другое. Например: `Name/Input` в `Controls-Name/Input`
+
+````json
+{
+  "path": "",
+  "replaces": [
+    {
+      "module": "Name/Input",
+      "controls": [
+        {
+          "name": "*",
+          "newModuleName": "Controls-Name/Input"
+        }
+      ]
+    }
+  ]
+}
+
 Замена `Controls/buttons:ArrowButton` на `Controls/extButtons:ArrowButton`
 
 ```json
@@ -172,7 +210,7 @@ str.replace(new RegExp(congig.reg, config.flag || "g"), config.replace);
     }
   ]
 }
-```
+````
 
 Замена `Controls/toggle:Tumbler` на `Controls/toggle:NewTumbler`
 
@@ -326,6 +364,8 @@ import * as toggle from "Controls/toggle";
 Также если контрол использовался так `Controls.LoadingIndicator`, а нужно превратить его в `Controls.loading:Indicator`,
 то скрипт самостоятельно не сможет подобное обработать, а любая попытка провернуть подобное может обернуться ошибками.
 Возможно, когда-то подобный функционал появится, но на данный момент в нем нет необходимости.
+
+При переносе модуля, когда используется конструкции с указанием в имени модуля "/\*", и указанием нового имени контрола, произойдет переименовывание самого модуля, старое имя контрола при этом не заменится.
 
 ## Что не корректно работает с переименовыванием опций
 
