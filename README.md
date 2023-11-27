@@ -177,7 +177,7 @@ str.replace(new RegExp(congig.reg, config.flag || "g"), config.replace);
 
 Перенос отдельных частей модуля из одного места в другое. Например: `Name/Input` в `Controls-Name/Input`
 
-````json
+```json
 {
   "path": "",
   "replaces": [
@@ -192,6 +192,7 @@ str.replace(new RegExp(congig.reg, config.flag || "g"), config.replace);
     }
   ]
 }
+```
 
 Замена `Controls/buttons:ArrowButton` на `Controls/extButtons:ArrowButton`
 
@@ -210,7 +211,7 @@ str.replace(new RegExp(congig.reg, config.flag || "g"), config.replace);
     }
   ]
 }
-````
+```
 
 Замена `Controls/toggle:Tumbler` на `Controls/toggle:NewTumbler`
 
