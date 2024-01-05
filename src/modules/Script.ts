@@ -1,7 +1,16 @@
 import { error, log, success, warning } from "./logger";
 import { FileUtils } from "../utils/FileUtils";
 import { Replacer } from "./Replacer";
-import { IContext, ICSSReplace, ICustomReplace, IError, IParam, IReplace, IReplaceOpt } from "../interfaces/IConfig";
+import {
+  IContext,
+  ICSSReplace,
+  ICustomReplace,
+  TCustomCb,
+  IError,
+  IParam,
+  IReplace,
+  IReplaceOpt,
+} from "../interfaces/IConfig";
 
 export enum TypeReplacer {
   Controls = "controls",
@@ -15,6 +24,9 @@ export const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasab
 export class Script {
   private replacer: Replacer = new Replacer();
   private errors: IError[] = [];
+  private customScripts: {
+    [name: string]: TCustomCb | undefined;
+  } = {};
 
   private _controlsReplace(replace: IReplace, newFileContent: string, newPath: string) {
     const moduleName = replace.module;
@@ -49,19 +61,19 @@ export class Script {
     };
   }
 
-  private script<TReplacesOption>(
+  private async script<TReplacesOption>(
     param: IParam<TReplacesOption>,
     path: string,
     type: TypeReplacer = TypeReplacer.Controls
   ) {
     const dirs = FileUtils.getDirs(path);
-    dirs.forEach((dir) => {
+    for (const dir of dirs) {
       const newPath = path + "/" + dir;
       if (EXCLUDE_DIRS.includes(dir)) {
-        return;
+        continue;
       }
       if (FileUtils.isDir(newPath)) {
-        this.script(param, newPath, type);
+        await this.script(param, newPath, type);
       } else {
         // На случай если нет прав на чтение или запись в директорию
         try {
@@ -71,7 +83,7 @@ export class Script {
           if (fileSize < param.maxFileSize) {
             const fileContent = FileUtils.read(newPath);
             let newFileContent = fileContent;
-            param.replaces.forEach((replace) => {
+            for (const replace of param.replaces) {
               switch (type) {
                 case TypeReplacer.Controls:
                   newFileContent = this._controlsReplace(replace as IReplace, newFileContent, newPath);
@@ -80,13 +92,48 @@ export class Script {
                   newFileContent = this._optionsReplace(replace as IReplaceOpt, newFileContent);
                   break;
                 case TypeReplacer.Custom:
-                  newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
+                  if ((replace as ICustomReplace).scriptPath) {
+                    const scriptPath = (replace as ICustomReplace).scriptPath as string;
+                    if (!this.customScripts.hasOwnProperty(scriptPath)) {
+                      if (FileUtils.isFile(scriptPath)) {
+                        const res = await import(scriptPath);
+                        this.customScripts[scriptPath] = res.run;
+                        if (typeof this.customScripts[scriptPath] !== "function") {
+                          this.errors.push({
+                            fileName: scriptPath,
+                            comment: `В файле "${scriptPath}" отсутствует метод run. См доку на github.`,
+                            date: new Date(),
+                          });
+                        }
+                      } else {
+                        this.errors.push({
+                          fileName: scriptPath,
+                          comment: `Не удалось найти файл "${scriptPath}", для запуска скрипта`,
+                          date: new Date(),
+                        });
+                        this.customScripts[scriptPath] = undefined;
+                      }
+                    }
+
+                    if (typeof this.customScripts[scriptPath] === "function") {
+                      newFileContent = this.replacer.customScriptReplace(
+                        {
+                          path,
+                          file: dir,
+                          fileContent: newFileContent,
+                        },
+                        this.customScripts[scriptPath] as TCustomCb
+                      );
+                    }
+                  } else {
+                    newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
+                  }
                   break;
                 case TypeReplacer.Css:
                   newFileContent = this.replacer.cssReplace(newFileContent, replace as ICSSReplace & IContext);
                   break;
               }
-            });
+            }
             if (fileContent !== newFileContent) {
               success(`Обновляю файл: ${newPath}`);
               FileUtils.write(newPath, newFileContent);
@@ -139,15 +186,15 @@ export class Script {
           error((e as Error).message);
         }
       }
-    });
+    }
   }
 
-  run<TReplacesOption>(param: IParam<TReplacesOption>, type: TypeReplacer = TypeReplacer.Controls) {
+  async run<TReplacesOption>(param: IParam<TReplacesOption>, type: TypeReplacer = TypeReplacer.Controls) {
     log("script start");
     log("=================================================================");
     this.errors = [];
     this.replacer.clearErrors();
-    this.script(Script.getCorrectParam(param), param.path, type);
+    await this.script(Script.getCorrectParam(param), param.path, type);
     this.errors = [...this.errors, ...this.replacer.getErrors()];
     if (this.errors.length) {
       this.saveLog();

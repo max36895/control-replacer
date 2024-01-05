@@ -9,10 +9,25 @@ export interface IControl {
 }
 
 export interface ICustomReplace {
-  reg: string;
+  reg?: string;
   flag?: string;
+  scriptPath?: string;
   replace: string;
 }
+
+export interface ICustomScriptResult {
+  status: boolean;
+  result?: string;
+  error?: string;
+}
+
+export interface ICustomScriptParam {
+  path: string;
+  file: string;
+  fileContent: string;
+}
+
+export type TCustomCb = (param: ICustomScriptParam) => ICustomScriptResult;
 
 export interface ICSSReplace {
   varName: string;

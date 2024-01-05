@@ -231,7 +231,22 @@ class Replacer {
         return value;
     }
     customReplace(str, config) {
-        return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
+        if (config.reg) {
+            return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
+        }
+        return str;
+    }
+    customScriptReplace(config, customScript) {
+        if (customScript) {
+            const res = customScript(config);
+            if (res.status) {
+                return res.result;
+            }
+            else if (res.error) {
+                this.errors.push({ fileName: config.file, comment: res.error, date: new Date() });
+            }
+        }
+        return config.fileContent;
     }
     importParse(str, controlName, moduleName) {
         const importsValue = Replacer.getImportMatch(moduleName, str);
@@ -466,6 +481,7 @@ const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasaby-cli_a
 class Script {
     replacer = new Replacer();
     errors = [];
+    customScripts = {};
     _controlsReplace(replace, newFileContent, newPath) {
         const moduleName = replace.module;
         replace.controls.forEach((control) => {
@@ -495,15 +511,15 @@ class Script {
             maxFileSize: param.maxFileSize ?? 50,
         };
     }
-    script(param, path, type = TypeReplacer.Controls) {
+    async script(param, path, type = TypeReplacer.Controls) {
         const dirs = FileUtils.getDirs(path);
-        dirs.forEach((dir) => {
+        for (const dir of dirs) {
             const newPath = path + "/" + dir;
             if (EXCLUDE_DIRS.includes(dir)) {
-                return;
+                continue;
             }
             if (FileUtils.isDir(newPath)) {
-                this.script(param, newPath, type);
+                await this.script(param, newPath, type);
             }
             else {
                 try {
@@ -511,7 +527,7 @@ class Script {
                     if (fileSize < param.maxFileSize) {
                         const fileContent = FileUtils.read(newPath);
                         let newFileContent = fileContent;
-                        param.replaces.forEach((replace) => {
+                        for (const replace of param.replaces) {
                             switch (type) {
                                 case TypeReplacer.Controls:
                                     newFileContent = this._controlsReplace(replace, newFileContent, newPath);
@@ -520,13 +536,46 @@ class Script {
                                     newFileContent = this._optionsReplace(replace, newFileContent);
                                     break;
                                 case TypeReplacer.Custom:
-                                    newFileContent = this.replacer.customReplace(newFileContent, replace);
+                                    if (replace.scriptPath) {
+                                        const scriptPath = replace.scriptPath;
+                                        if (!this.customScripts.hasOwnProperty(scriptPath)) {
+                                            if (FileUtils.isFile(scriptPath)) {
+                                                const res = await import(scriptPath);
+                                                this.customScripts[scriptPath] = res.run;
+                                                if (typeof this.customScripts[scriptPath] !== "function") {
+                                                    this.errors.push({
+                                                        fileName: scriptPath,
+                                                        comment: `В файле "${scriptPath}" отсутствует метод run. См доку на github.`,
+                                                        date: new Date(),
+                                                    });
+                                                }
+                                            }
+                                            else {
+                                                this.errors.push({
+                                                    fileName: scriptPath,
+                                                    comment: `Не удалось найти файл "${scriptPath}", для запуска скрипта`,
+                                                    date: new Date(),
+                                                });
+                                                this.customScripts[scriptPath] = undefined;
+                                            }
+                                        }
+                                        if (typeof this.customScripts[scriptPath] === "function") {
+                                            newFileContent = this.replacer.customScriptReplace({
+                                                path,
+                                                file: dir,
+                                                fileContent: newFileContent,
+                                            }, this.customScripts[scriptPath]);
+                                        }
+                                    }
+                                    else {
+                                        newFileContent = this.replacer.customReplace(newFileContent, replace);
+                                    }
                                     break;
                                 case TypeReplacer.Css:
                                     newFileContent = this.replacer.cssReplace(newFileContent, replace);
                                     break;
                             }
-                        });
+                        }
                         if (fileContent !== newFileContent) {
                             success(`Обновляю файл: ${newPath}`);
                             FileUtils.write(newPath, newFileContent);
@@ -550,14 +599,14 @@ class Script {
                     error(e.message);
                 }
             }
-        });
+        }
     }
-    run(param, type = TypeReplacer.Controls) {
+    async run(param, type = TypeReplacer.Controls) {
         log("script start");
         log("=================================================================");
         this.errors = [];
         this.replacer.clearErrors();
-        this.script(Script.getCorrectParam(param), param.path, type);
+        await this.script(Script.getCorrectParam(param), param.path, type);
         this.errors = [...this.errors, ...this.replacer.getErrors()];
         if (this.errors.length) {
             this.saveLog();
@@ -702,6 +751,7 @@ function getScriptCustomParam() {
     log('#          "reg": "Регулярное выражение для замены"                  #');
     log('#          "flag": "Флаг для регулярного выражения. По умолчанию g"  #');
     log('#          "replace": "То как производится замена"                   #');
+    log('#          "scriptPath": "Путь до пользовательского скрипта"         #');
     log("#      ]                                                             #");
     log('#      "maxFileSize": "Максимальный размер файла. По умолчанию 50mb" #');
     log("# }                                                                  #");

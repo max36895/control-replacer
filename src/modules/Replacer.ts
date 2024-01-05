@@ -1,4 +1,14 @@
-import { IConfig, IContext, ICSSReplace, ICustomReplace, IError, IReplaceOpt } from "../interfaces/IConfig";
+import {
+  IConfig,
+  IContext,
+  ICSSReplace,
+  ICustomReplace,
+  ICustomScriptParam,
+  IError,
+  IReplaceOpt,
+  TCustomCb,
+} from "../interfaces/IConfig";
+import { FileUtils } from "../utils/FileUtils";
 
 interface IImportReplacer {
   name: string;
@@ -203,12 +213,33 @@ export class Replacer {
   }
 
   /**
-   * Пользовательская замена
+   * Пользовательская замена через свою регулярку
    * @param str
    * @param config
    */
   customReplace(str: string, config: ICustomReplace): string {
-    return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
+    if (config.reg) {
+      return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
+    }
+    return str;
+  }
+
+  /**
+   * Пользовательская замена через кастомный скрипт
+   * @param config
+   * @param customScript
+   * @returns
+   */
+  customScriptReplace(config: ICustomScriptParam, customScript: TCustomCb): string {
+    if (customScript) {
+      const res = customScript(config);
+      if (res.status) {
+        return res.result as string;
+      } else if (res.error) {
+        this.errors.push({ fileName: config.file, comment: res.error, date: new Date() });
+      }
+    }
+    return config.fileContent;
   }
 
   /**
