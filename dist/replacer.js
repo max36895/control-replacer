@@ -194,20 +194,12 @@ class Replacer {
                         value = value.replace(reg, "");
                     }
                     else {
-                        this.errors.push({
-                            fileName: config.thisContext,
-                            comment: `Не удалось удалить класс ${config.varName}, так как у него есть вложенные классы.`,
-                            date: new Date(),
-                        });
+                        this.addError(config.thisContext, `Не удалось удалить класс ${config.varName}, так как у него есть вложенные классы.`);
                     }
                 }
                 else {
                     if (value.match(new RegExp("(\\" + config.varName + "[^}]+})", "mg"))) {
-                        this.errors.push({
-                            fileName: config.thisContext,
-                            comment: `Не удалось удалить класс ${config.varName}, так как он используется в связке с другим классом.`,
-                            date: new Date(),
-                        });
+                        this.addError(config.thisContext, `Не удалось удалить класс ${config.varName}, так как он используется в связке с другим классом.`);
                     }
                 }
             }
@@ -243,7 +235,7 @@ class Replacer {
                 return res.result;
             }
             else if (res.error) {
-                this.errors.push({ fileName: config.file, comment: res.error, date: new Date() });
+                this.addError(config.file, res.error);
             }
         }
         return config.fileContent;
@@ -337,11 +329,7 @@ class Replacer {
                 }
             }
             else {
-                this.errors.push({
-                    fileName: config.thisContext,
-                    comment: `Используется сложный импорт(import * as ${importReplacer.lib} from \'${config.moduleName}\'). Скрипт не знает как его правильно обработать!`,
-                    date: new Date(),
-                });
+                this.addError(config.thisContext, `Используется сложный импорт(import * as ${importReplacer.lib} from \'${config.moduleName}\'). Скрипт не знает как его правильно обработать!`);
             }
         }
         let emptyImportMatch = Replacer.getImportMatch(config.moduleName, value);
@@ -462,6 +450,14 @@ class Replacer {
         });
         return value;
     }
+    addError(fileName, msg) {
+        warning(`file: "${fileName}";\n info:\n ${msg}`);
+        this.errors.push({
+            fileName,
+            comment: msg,
+            date: new Date(),
+        });
+    }
     clearErrors() {
         this.errors = [];
     }
@@ -543,19 +539,11 @@ class Script {
                                                 const res = await import(scriptPath);
                                                 this.customScripts[scriptPath] = res.run;
                                                 if (typeof this.customScripts[scriptPath] !== "function") {
-                                                    this.errors.push({
-                                                        fileName: scriptPath,
-                                                        comment: `В файле "${scriptPath}" отсутствует метод run. См доку на github.`,
-                                                        date: new Date(),
-                                                    });
+                                                    this.addError(scriptPath, `В файле "${scriptPath}" отсутствует метод run. См доку на github.`, true);
                                                 }
                                             }
                                             else {
-                                                this.errors.push({
-                                                    fileName: scriptPath,
-                                                    comment: `Не удалось найти файл "${scriptPath}", для запуска скрипта`,
-                                                    date: new Date(),
-                                                });
+                                                this.addError(scriptPath, `Не удалось найти файл "${scriptPath}", для запуска скрипта`, true);
                                                 this.customScripts[scriptPath] = undefined;
                                             }
                                         }
@@ -582,21 +570,11 @@ class Script {
                         }
                     }
                     else {
-                        warning(`Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит огрнаничение на ${param.maxFileSize}MB.`);
-                        this.errors.push({
-                            fileName: newPath,
-                            comment: `Файл весит ${fileSize}MB. Задано ограничение в ${param.maxFileSize}MB.`,
-                            date: new Date(),
-                        });
+                        this.addError(newPath, `Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит огрнаничение на ${param.maxFileSize}MB.`);
                     }
                 }
                 catch (e) {
-                    this.errors.push({
-                        date: new Date(),
-                        fileName: newPath,
-                        comment: e.message,
-                    });
-                    error(e.message);
+                    this.addError(newPath, e.message, true);
                 }
             }
         }
@@ -613,6 +591,20 @@ class Script {
         }
         log("=================================================================");
         log("script end");
+    }
+    addError(fileName, msg, isError = false) {
+        const comment = `file: "${fileName}";\n info:\n ${msg}`;
+        if (isError) {
+            error(comment);
+        }
+        else {
+            warning(comment);
+        }
+        this.errors.push({
+            fileName,
+            comment: msg,
+            date: new Date(),
+        });
     }
     saveLog() {
         const errorDir = "./errors";

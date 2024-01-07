@@ -9,6 +9,7 @@ import {
   TCustomCb,
 } from "../interfaces/IConfig";
 import { FileUtils } from "../utils/FileUtils";
+import { warning } from "./logger";
 
 interface IImportReplacer {
   name: string;
@@ -176,19 +177,17 @@ export class Replacer {
           if ((find[0].match(/{/g) as string[]).length === 1) {
             value = value.replace(reg, "");
           } else {
-            this.errors.push({
-              fileName: config.thisContext,
-              comment: `Не удалось удалить класс ${config.varName}, так как у него есть вложенные классы.`,
-              date: new Date(),
-            });
+            this.addError(
+              config.thisContext,
+              `Не удалось удалить класс ${config.varName}, так как у него есть вложенные классы.`
+            );
           }
         } else {
           if (value.match(new RegExp("(\\" + config.varName + "[^}]+})", "mg"))) {
-            this.errors.push({
-              fileName: config.thisContext,
-              comment: `Не удалось удалить класс ${config.varName}, так как он используется в связке с другим классом.`,
-              date: new Date(),
-            });
+            this.addError(
+              config.thisContext,
+              `Не удалось удалить класс ${config.varName}, так как он используется в связке с другим классом.`
+            );
           }
         }
       } else {
@@ -236,7 +235,7 @@ export class Replacer {
       if (res.status) {
         return res.result as string;
       } else if (res.error) {
-        this.errors.push({ fileName: config.file, comment: res.error, date: new Date() });
+        this.addError(config.file, res.error);
       }
     }
     return config.fileContent;
@@ -356,11 +355,10 @@ export class Replacer {
         }
       } else {
         // непонятно как подобное править, поэтому просто кинем ошибку
-        this.errors.push({
-          fileName: config.thisContext,
-          comment: `Используется сложный импорт(import * as ${importReplacer.lib} from \'${config.moduleName}\'). Скрипт не знает как его правильно обработать!`,
-          date: new Date(),
-        });
+        this.addError(
+          config.thisContext,
+          `Используется сложный импорт(import * as ${importReplacer.lib} from \'${config.moduleName}\'). Скрипт не знает как его правильно обработать!`
+        );
       }
     }
 
@@ -512,6 +510,15 @@ export class Replacer {
     });
 
     return value;
+  }
+
+  protected addError(fileName: string, msg: string) {
+    warning(`file: "${fileName}";\n info:\n ${msg}`);
+    this.errors.push({
+      fileName,
+      comment: msg,
+      date: new Date(),
+    });
   }
 
   clearErrors(): void {
