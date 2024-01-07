@@ -99,18 +99,14 @@ export class Script {
                         const res = await import(scriptPath);
                         this.customScripts[scriptPath] = res.run;
                         if (typeof this.customScripts[scriptPath] !== "function") {
-                          this.errors.push({
-                            fileName: scriptPath,
-                            comment: `В файле "${scriptPath}" отсутствует метод run. См доку на github.`,
-                            date: new Date(),
-                          });
+                          this.addError(
+                            scriptPath,
+                            `В файле "${scriptPath}" отсутствует метод run. См доку на github.`,
+                            true
+                          );
                         }
                       } else {
-                        this.errors.push({
-                          fileName: scriptPath,
-                          comment: `Не удалось найти файл "${scriptPath}", для запуска скрипта`,
-                          date: new Date(),
-                        });
+                        this.addError(scriptPath, `Не удалось найти файл "${scriptPath}", для запуска скрипта`, true);
                         this.customScripts[scriptPath] = undefined;
                       }
                     }
@@ -168,22 +164,13 @@ export class Script {
             }
             */
           } else {
-            warning(
+            this.addError(
+              newPath,
               `Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит огрнаничение на ${param.maxFileSize}MB.`
             );
-            this.errors.push({
-              fileName: newPath,
-              comment: `Файл весит ${fileSize}MB. Задано ограничение в ${param.maxFileSize}MB.`,
-              date: new Date(),
-            });
           }
         } catch (e) {
-          this.errors.push({
-            date: new Date(),
-            fileName: newPath,
-            comment: (e as Error).message,
-          });
-          error((e as Error).message);
+          this.addError(newPath, (e as Error).message, true);
         }
       }
     }
@@ -201,6 +188,20 @@ export class Script {
     }
     log("=================================================================");
     log("script end");
+  }
+
+  protected addError(fileName: string, msg: string, isError: boolean = false) {
+    const comment = `file: "${fileName}";\n info:\n ${msg}`;
+    if (isError) {
+      error(comment);
+    } else {
+      warning(comment);
+    }
+    this.errors.push({
+      fileName,
+      comment: msg,
+      date: new Date(),
+    });
   }
 
   private saveLog() {
