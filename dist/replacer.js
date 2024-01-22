@@ -657,12 +657,38 @@ function resetGit(dir) {
     });
 }
 
+const NOT_PUSHED_MSG = 'unknown revision or path not in the working tree.';
+function isPushed(stdout) {
+    if (stdout) {
+        const msgs = stdout.split('\n');
+        return msgs[0].includes(NOT_PUSHED_MSG) || msgs[1]?.includes(NOT_PUSHED_MSG);
+    }
+    return false;
+}
 function fixCommit(dir) {
     executeInRep(dir, (path) => {
-        const gitStatus = childProcess__namespace.execSync(`cd ${path} && git status`);
-        if (gitStatus.toString().includes('use "git push"')) {
-            childProcess__namespace.execSync(`cd ${path} && git reset --soft HEAD~`);
+        const fn = () => {
+            childProcess__namespace.execSync(`cd "${path}" &&  git reset --soft HEAD~`);
             success(`Коммит по пути: ${path} успешно отменен`);
+        };
+        const gitStatus = childProcess__namespace.execSync(`cd "${path}" && git status`);
+        if (gitStatus.toString().includes('use "git push"')) {
+            fn();
+        }
+        else {
+            const gitBranch = childProcess__namespace.execSync(`cd "${path}" && git branch -v`).toString().match(/\* ([^ |\n]+)/)?.[1];
+            if (gitBranch) {
+                let isPush;
+                try {
+                    isPush = isPushed(childProcess__namespace.execSync(`cd "${path}" && git log origin/${gitBranch}`, { stdio: 'pipe' }).toString());
+                }
+                catch (e) {
+                    isPush = isPushed(e.message);
+                }
+                if (isPush) {
+                    fn();
+                }
+            }
         }
     });
 }
