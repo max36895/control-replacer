@@ -4,6 +4,28 @@ import { Script } from "../src/modules/Script";
 
 const replaceControl = [
   {
+    name: "rename multiline import for util",
+    start: `import {
+    first,
+    myUtil,
+    second
+    } from 'Controls/utils';
+    myUtil(1)`,
+    end: `import {
+    first,
+    myNewUtil,
+    second
+    } from 'Controls/utils';
+    myNewUtil(1)`,
+  },
+  {
+    name: "rename type for util",
+    start: `import type {myUtil} from 'Controls/utils';
+    myUtil(1)`,
+    end: `import type { myNewUtil } from 'Controls/utils';
+    myNewUtil(1)`,
+  },
+  {
     name: "rename util",
     start: `import {myUtil} from 'Controls/utils';
     myUtil(1)`,
@@ -304,6 +326,18 @@ const replaceCSS = [
         height: var(--remove);`,
     end: `
         height: var(--varNew);`,
+  },
+  {
+    name: "remove multiline css var",
+    start: `
+    --first: 12px;
+    --remove: 512;
+    --second: 13px;
+    height: var(--remove);`,
+    end: `
+    --first: 12px;
+    --second: 13px;
+    height: var(--varNew);`,
   },
   {
     name: "rename css class",

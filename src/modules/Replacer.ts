@@ -8,7 +8,6 @@ import {
   IReplaceOpt,
   TCustomCb,
 } from "../interfaces/IConfig";
-import { FileUtils } from "../utils/FileUtils";
 import { warning } from "./logger";
 
 interface IImportReplacer {
@@ -169,7 +168,7 @@ export class Replacer {
 
     if (config.isRemove || (isClassName && !config.newVarName)) {
       if (isCssVar) {
-        value = value.replace(new RegExp("(" + config.varName + ":[^;]+;)", "g"), "");
+        value = value.replace(new RegExp("((\\n[^-]+|\\n)?" + config.varName + ":[^;]+;)", "g"), "");
       } else if (isClassName) {
         const reg = new RegExp("(^\\" + config.varName + "[^}]+})", "mg");
         const find = value.match(reg);
@@ -449,18 +448,23 @@ export class Replacer {
       // Правим импорты только в том случае, если были какие-то изменения
       if (value !== str) {
         // Приводим все импорты к корректному ввиду import { name1, name2 } from '...';
-        const reg = /import(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/gmu;
+        const reg = /import( type|)(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/gmu;
         const imports = [...value.matchAll(reg)];
         imports.forEach((imp) => {
-          if (imp[1] && imp[0].includes("{") && imp[0].includes("}")) {
-            let importName = imp[1]
-              .replace(/[{|}]/g, "")
-              .split(",")
-              .map((res) => {
-                return res.trim();
-              })
-              .join(", ");
-            const replaceValue = imp[0].replace(imp[1], ` { ${importName} } `);
+          if (imp[2] && imp[0].includes("{") && imp[0].includes("}")) {
+            // Если в импорте есть переносы строки, то считаем вид корректным, и не пытаемся как-то преобразовать
+            if (imp[2].includes('\n')) {
+              return;
+            }
+            let importName = imp[2]
+                .trim()
+                .replace(/[{|}]/g, "")
+                .split(",")
+                .map((res) => {
+                  return res.trim();
+                })
+                .join(", ");
+            const replaceValue = imp[0].replace(imp[2], ` { ${importName} } `);
             value = value.replace(imp[0], replaceValue);
           }
         });

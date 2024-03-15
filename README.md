@@ -311,6 +311,34 @@ export function run(param: ICustomScriptParam): ICustomScriptResult {
 }
 ```
 
+Замена css переменной `--oldName` на `--newName`
+
+```json
+{
+  "path": "",
+  "replaces": [
+    {
+      "varName": "--oldName",
+      "newVarName": "--newName"
+    }
+  ]
+}
+```
+
+Замена css класса `oldClassName` на `newClassName`
+
+```json
+{
+  "path": "",
+  "replaces": [
+    {
+      "varName": ".oldClassName",
+      "newVarName": ".newClassName"
+    }
+  ]
+}
+```
+
 ### Дополнительно
 
 Важно чтобы в module и newModuleName разделение было сделано через `/` иначе возможна некорректная работа. Также
