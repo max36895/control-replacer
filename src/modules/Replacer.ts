@@ -42,9 +42,9 @@ export class Replacer {
   errors: IError[] = [];
 
   /**
-   * Ищет нужный импорт по названию модуля
-   * @param moduleName
-   * @param str
+   * Поиск импорта по названию модуля
+   * @param moduleName Имя модуля/библиотеки, которую нужно найти
+   * @param str Содержимое для обработки
    * @private
    */
   private static getImportMatch(moduleName: string, str: string): RegExpMatchArray[] {
@@ -53,10 +53,10 @@ export class Replacer {
   }
 
   /**
-   * Добавляет новый импорт по необходимости.
-   * @param str
-   * @param match
-   * @param importReplacer
+   * Добавление значение в импорт. Добавление происходит только в том случае, если ранее значения не было.
+   * @param str Содержимое для обработки
+   * @param match Обрабатываемый импорт
+   * @param importReplacer Конфиг для замены
    * @private
    */
   private static addedInImport(str: string, match: RegExpMatchArray[], importReplacer: IImportReplacer): string {
@@ -89,9 +89,9 @@ export class Replacer {
   }
 
   /**
-   * Осуществляет замену контролов
-   * @param str
-   * @param config
+   * Замена контролов
+   * @param str Обрабатываемая строка
+   * @param config Конфигурация для обработки
    */
   replaceControls(str: string, config: IConfig & IContext): string {
     let value = str;
@@ -101,34 +101,27 @@ export class Replacer {
   }
 
   /**
-   * Осуществляет замену для опций
-   * @param str
-   * @param config
+   * Замена опций компонента
+   * @param str Обрабатываемая строка
+   * @param config Конфигурация для обработки
    */
   replaceOptions(str: string, config: IReplaceOpt): string {
     let value = str;
     const importsReplacer = this.importParse(str, config.control, config.module);
+    const beforeReg = "\\b(?:\\n|[^>])+?)\\b";
+    const afterReg = "\\b((?:\\n|[^>])+?>)";
 
     if (importsReplacer) {
       importsReplacer.forEach((importReplacer) => {
         if (importReplacer.name) {
           value = value.replace(
-            new RegExp(
-              "(<\\b" + importReplacer.name + "\\b(?:\\n|[^>])+?)\\b" + config.thisOpt + "\\b((?:\\n|[^>])+?>)",
-              "g"
-            ),
+            new RegExp("(<\\b" + importReplacer.name + beforeReg + config.thisOpt + afterReg, "g"),
             "$1" + config.newOpt + "$2"
           );
         } else {
           value = value.replace(
             new RegExp(
-              "(<" +
-                importReplacer.lib +
-                "." +
-                importReplacer.control +
-                "\\b(?:\\n|[^>])+?)\\b" +
-                config.thisOpt +
-                "\\b((?:\\n|[^>])+?>)"
+              "(<" + importReplacer.lib + "." + importReplacer.control + beforeReg + config.thisOpt + afterReg
             ),
             "$1" + config.newOpt + "$2"
           );
@@ -140,13 +133,7 @@ export class Replacer {
     SEPARATORS.forEach((separator) => {
       value = value.replace(
         new RegExp(
-          "(" +
-            path.join(separator.lib) +
-            separator.control +
-            config.control +
-            "\\b(?:\\n|[^>])+?)\\b" +
-            config.thisOpt +
-            "\\b((?:\\n|[^>])+?>)",
+          "(" + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg,
           "g"
         ),
         "$1" + config.newOpt + "$2"
@@ -158,8 +145,8 @@ export class Replacer {
 
   /**
    * Осуществляет замену для css-переменных и классов
-   * @param str
-   * @param config
+   * @param str Обрабатываемая строка
+   * @param config Конфигурация для обработки
    */
   cssReplace(str: string, config: ICSSReplace & IContext): string {
     let value = str;
@@ -212,10 +199,10 @@ export class Replacer {
 
   /**
    * Пользовательская замена через свою регулярку
-   * @param str
-   * @param config
+   * @param str Обрабатываемая строка
+   * @param config Конфигурация для обработки
    */
-  customReplace(str: string, config: ICustomReplace): string {
+  customRegReplace(str: string, config: ICustomReplace): string {
     if (config.reg) {
       return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
     }
@@ -223,9 +210,9 @@ export class Replacer {
   }
 
   /**
-   * Пользовательская замена через кастомный скрипт
-   * @param config
-   * @param customScript
+   * Пользовательская замена через свой скрипт
+   * @param config Конфигурация для обработки
+   * @param customScript Кастоиный скрипт
    * @returns
    */
   customScriptReplace(config: ICustomScriptParam, customScript: TCustomCb): string {
@@ -241,10 +228,10 @@ export class Replacer {
   }
 
   /**
-   * Парсит импорт, чтобы вернуть удобный для работы вид
-   * @param str
-   * @param controlName
-   * @param moduleName
+   * Парсит импорты, находя нужный, возвращая в удобном для работы виде
+   * @param str Обрабатываемая строка
+   * @param controlName Имя контрола/компонента
+   * @param moduleName Имя модуля
    * @private
    */
   private importParse(str: string, controlName: string, moduleName: string): IImportReplacer[] | null {
@@ -303,9 +290,9 @@ export class Replacer {
 
   /**
    * Обновляет импорты. В случае необходимости добавляются импорты с новым модулем
-   * @param str
-   * @param importReplacer
-   * @param config
+   * @param str Обрабатываемая строка
+   * @param importReplacer Обрабатываемый импорт
+   * @param config Конфигурация для обработки
    * @private
    */
   private updateImport(str: string, importReplacer: IImportReplacer, config: IConfig & IContext): string {
@@ -326,6 +313,7 @@ export class Replacer {
       let endSeparator = "";
       if (importReplacer.name) {
         importReplacer.importNames.split(",").forEach((imp) => {
+          // Если импорта нет, то добавляем его. В противном случае, добавляем значение в существующий импорт
           if (!new RegExp(`\\b${importReplacer.control}\\b`).test(imp)) {
             imports.push(imp);
           } else {
@@ -349,7 +337,7 @@ export class Replacer {
             }} from '${config.newModuleName}';`;
           }
           value = value.replace(new RegExp("(\"|')" + config.moduleName + "(\"|')"), newImport);
-          // Если испортили импорт, то удаляем лишнее
+          // Если при обработке испортили импорт, то удаляем лишнее
           value = value.replace(";;", ";");
         }
       } else {
@@ -361,6 +349,7 @@ export class Replacer {
       }
     }
 
+    // Может произойти так, что после обработке появился пустой импорт. Поэтому проверяем этот момент, удаляя все лишнее.
     let emptyImportMatch = Replacer.getImportMatch(config.moduleName, value);
     if (emptyImportMatch.length) {
       const emptyValue = emptyImportMatch[0][1].replace(/\n/g, "").trim();
@@ -373,11 +362,11 @@ export class Replacer {
   }
 
   /**
-   * Производит полную замену импортов, включая имя модуля, или название экспортируемой переменной.
-   * Также заменяет имя контрола, на то что в импорте для tsx файлов
-   * Также приводи импорты к корректному виду
-   * @param str
-   * @param config
+   * Производит полную замену импортов. Заменяя имя модуля, или название экспортируемой переменной.
+   * Также заменяет имя контрола в обрабатываемой строке, на то что указано в импорте
+   * Также приводи импорты к корректному виду, удаляя все лишнее
+   * @param str Обрабатываемая строка
+   * @param config Конфигурация для обработки
    * @private
    */
   private importReplacer(str: string, config: IConfig & IContext): string {
@@ -403,6 +392,8 @@ export class Replacer {
           value = this.updateImport(value, importReplacer, config);
           if (importReplacer.name) {
             if (newControlName) {
+              // Значения равны в том случае, если в импорте у компонента не меняется имя через as
+              // Так сделано для того, что обработка должна отличаться, так как если есть as, то нужно поправить только импорт.
               if (importReplacer.name === importReplacer.control) {
                 value = value.replace(
                   new RegExp("\\b" + importReplacer.control + "\\b([^(/|'|\")])", "g"),
@@ -426,6 +417,7 @@ export class Replacer {
                 const reg = new RegExp(updateImportReplacer[0].fullImport);
                 value = value.replace(reg, replaceValue);
               } else {
+                // Если контрол превращается в модуль, то идем по опасной ветке.
                 if (importReplacer.name === importReplacer.control) {
                   // опасная штука, но по другому пока никак
                   value = value.replace(reg, `default as ${controlName}`);
@@ -445,25 +437,25 @@ export class Replacer {
         }
       });
 
-      // Правим импорты только в том случае, если были какие-то изменения
+      // Правим импорты только в том случае, если были какие-то изменения в обрабатываемой строке
       if (value !== str) {
         // Приводим все импорты к корректному ввиду import { name1, name2 } from '...';
         const reg = /import( type|)(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/gmu;
         const imports = [...value.matchAll(reg)];
         imports.forEach((imp) => {
           if (imp[2] && imp[0].includes("{") && imp[0].includes("}")) {
-            // Если в импорте есть переносы строки, то считаем вид корректным, и не пытаемся как-то преобразовать
-            if (imp[2].includes('\n')) {
+            // Если в импорте есть переносы строки, то считаем вид корректным, и не пытаемся его как-то преобразовать
+            if (imp[2].includes("\n")) {
               return;
             }
             let importName = imp[2]
-                .trim()
-                .replace(/[{|}]/g, "")
-                .split(",")
-                .map((res) => {
-                  return res.trim();
-                })
-                .join(", ");
+              .trim()
+              .replace(/[{|}]/g, "")
+              .split(",")
+              .map((res) => {
+                return res.trim();
+              })
+              .join(", ");
             const replaceValue = imp[0].replace(imp[2], ` { ${importName} } `);
             value = value.replace(imp[0], replaceValue);
           }
@@ -476,9 +468,11 @@ export class Replacer {
   }
 
   /**
-   * Заменяет все текстовые вхождения. В основном для wml и wml подобного синтаксиса
-   * @param str
-   * @param config
+   * Заменяет все текстовые вхождения. В основном для wml и wml подобного синтаксиса.
+   * Также заменяются моменты вида const module = required('...'),
+   * и другие текстовые вхождения, которые хоть как-то соответтсвует условию для замены.
+   * @param str Обрабатываемая строка
+   * @param config Конфигурация для обработки
    * @private
    */
   private textReplacer(str: string, config: IConfig): string {
@@ -499,7 +493,7 @@ export class Replacer {
         }
       }
 
-      // На случай когда модуль переносится.
+      // На случай когда весь модуль с содержимым переносится
       if (newName === "*" || moduleName[moduleName.length - 1] === "*") {
         const correctPath = moduleName.replace("/*", "").split("/");
         const correctNewPath = newModuleName.replace("/*", "").split("/");

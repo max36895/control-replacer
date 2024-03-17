@@ -150,31 +150,21 @@ class Replacer {
     replaceOptions(str, config) {
         let value = str;
         const importsReplacer = this.importParse(str, config.control, config.module);
+        const beforeReg = "\\b(?:\\n|[^>])+?)\\b";
+        const afterReg = "\\b((?:\\n|[^>])+?>)";
         if (importsReplacer) {
             importsReplacer.forEach((importReplacer) => {
                 if (importReplacer.name) {
-                    value = value.replace(new RegExp("(<\\b" + importReplacer.name + "\\b(?:\\n|[^>])+?)\\b" + config.thisOpt + "\\b((?:\\n|[^>])+?>)", "g"), "$1" + config.newOpt + "$2");
+                    value = value.replace(new RegExp("(<\\b" + importReplacer.name + beforeReg + config.thisOpt + afterReg, "g"), "$1" + config.newOpt + "$2");
                 }
                 else {
-                    value = value.replace(new RegExp("(<" +
-                        importReplacer.lib +
-                        "." +
-                        importReplacer.control +
-                        "\\b(?:\\n|[^>])+?)\\b" +
-                        config.thisOpt +
-                        "\\b((?:\\n|[^>])+?>)"), "$1" + config.newOpt + "$2");
+                    value = value.replace(new RegExp("(<" + importReplacer.lib + "." + importReplacer.control + beforeReg + config.thisOpt + afterReg), "$1" + config.newOpt + "$2");
                 }
             });
         }
         const path = config.module.split("/");
         SEPARATORS.forEach((separator) => {
-            value = value.replace(new RegExp("(" +
-                path.join(separator.lib) +
-                separator.control +
-                config.control +
-                "\\b(?:\\n|[^>])+?)\\b" +
-                config.thisOpt +
-                "\\b((?:\\n|[^>])+?>)", "g"), "$1" + config.newOpt + "$2");
+            value = value.replace(new RegExp("(" + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg, "g"), "$1" + config.newOpt + "$2");
         });
         return value;
     }
@@ -184,7 +174,7 @@ class Replacer {
         const isClassName = config.varName.includes(".");
         if (config.isRemove || (isClassName && !config.newVarName)) {
             if (isCssVar) {
-                value = value.replace(new RegExp("(" + config.varName + ":[^;]+;)", "g"), "");
+                value = value.replace(new RegExp("((\\n[^-]+|\\n)?" + config.varName + ":[^;]+;)", "g"), "");
             }
             else if (isClassName) {
                 const reg = new RegExp("(^\\" + config.varName + "[^}]+})", "mg");
@@ -222,7 +212,7 @@ class Replacer {
         value = value.replace(new RegExp("(" + find + ")", "g"), replace);
         return value;
     }
-    customReplace(str, config) {
+    customRegReplace(str, config) {
         if (config.reg) {
             return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
         }
@@ -399,18 +389,22 @@ class Replacer {
                 }
             });
             if (value !== str) {
-                const reg = /import(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/gmu;
+                const reg = /import( type|)(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/gmu;
                 const imports = [...value.matchAll(reg)];
                 imports.forEach((imp) => {
-                    if (imp[1] && imp[0].includes("{") && imp[0].includes("}")) {
-                        let importName = imp[1]
+                    if (imp[2] && imp[0].includes("{") && imp[0].includes("}")) {
+                        if (imp[2].includes("\n")) {
+                            return;
+                        }
+                        let importName = imp[2]
+                            .trim()
                             .replace(/[{|}]/g, "")
                             .split(",")
                             .map((res) => {
                             return res.trim();
                         })
                             .join(", ");
-                        const replaceValue = imp[0].replace(imp[1], ` { ${importName} } `);
+                        const replaceValue = imp[0].replace(imp[2], ` { ${importName} } `);
                         value = value.replace(imp[0], replaceValue);
                     }
                 });
@@ -474,6 +468,7 @@ var TypeReplacer;
     TypeReplacer["Css"] = "css";
 })(TypeReplacer || (TypeReplacer = {}));
 const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasaby-cli_artifacts"];
+const LINE_SEPARATOR = "=".repeat(75);
 class Script {
     replacer = new Replacer();
     errors = [];
@@ -556,7 +551,7 @@ class Script {
                                         }
                                     }
                                     else {
-                                        newFileContent = this.replacer.customReplace(newFileContent, replace);
+                                        newFileContent = this.replacer.customRegReplace(newFileContent, replace);
                                     }
                                     break;
                                 case TypeReplacer.Css:
@@ -565,12 +560,12 @@ class Script {
                             }
                         }
                         if (fileContent !== newFileContent) {
-                            success(`Обновляю файл: ${newPath}`);
+                            success(`Обновляю файл: "${newPath}"`);
                             FileUtils.write(newPath, newFileContent);
                         }
                     }
                     else {
-                        this.addError(newPath, `Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит огрнаничение на ${param.maxFileSize}MB.`);
+                        this.addError(newPath, `Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит ограничение в ${param.maxFileSize}MB.`);
                     }
                 }
                 catch (e) {
@@ -581,7 +576,7 @@ class Script {
     }
     async run(param, type = TypeReplacer.Controls) {
         log("script start");
-        log("=================================================================");
+        log(LINE_SEPARATOR);
         this.errors = [];
         this.replacer.clearErrors();
         await this.script(Script.getCorrectParam(param), param.path, type);
@@ -589,7 +584,7 @@ class Script {
         if (this.errors.length) {
             this.saveLog();
         }
-        log("=================================================================");
+        log(LINE_SEPARATOR);
         log("script end");
     }
     addError(fileName, msg, isError = false) {
@@ -613,11 +608,11 @@ class Script {
         }
         let errorContent = "";
         this.errors.forEach((error) => {
-            errorContent += "\n===========================================================================";
+            errorContent += `\n${LINE_SEPARATOR}`;
             errorContent += "\n\tДата: " + error.date;
             errorContent += "\n\tФайл: " + error.fileName;
             errorContent += "\n\tОписание: " + error.comment;
-            errorContent += "\n===========================================================================\n";
+            errorContent += `\n${LINE_SEPARATOR}\n`;
         });
         const fileName = Date.now();
         FileUtils.write(`${errorDir}/${fileName}.log`, errorContent, "w");
@@ -657,10 +652,10 @@ function resetGit(dir) {
     });
 }
 
-const NOT_PUSHED_MSG = 'unknown revision or path not in the working tree.';
+const NOT_PUSHED_MSG = "unknown revision or path not in the working tree.";
 function isPushed(stdout) {
     if (stdout) {
-        const msgs = stdout.split('\n');
+        const msgs = stdout.split("\n");
         return msgs[0].includes(NOT_PUSHED_MSG) || msgs[1]?.includes(NOT_PUSHED_MSG);
     }
     return false;
@@ -669,18 +664,21 @@ function fixCommit(dir) {
     executeInRep(dir, (path) => {
         const fn = () => {
             childProcess__namespace.execSync(`cd "${path}" &&  git reset --soft HEAD~`);
-            success(`Коммит по пути: ${path} успешно отменен`);
+            success(`Коммит по пути: "${path}" успешно отменен`);
         };
         const gitStatus = childProcess__namespace.execSync(`cd "${path}" && git status`);
         if (gitStatus.toString().includes('use "git push"')) {
             fn();
         }
         else {
-            const gitBranch = childProcess__namespace.execSync(`cd "${path}" && git branch -v`).toString().match(/\* ([^ |\n]+)/)?.[1];
+            const gitBranch = childProcess__namespace
+                .execSync(`cd "${path}" && git branch -v`)
+                .toString()
+                .match(/\* ([^ |\n]+)/)?.[1];
             if (gitBranch) {
                 let isPush;
                 try {
-                    isPush = isPushed(childProcess__namespace.execSync(`cd "${path}" && git log origin/${gitBranch}`, { stdio: 'pipe' }).toString());
+                    isPush = isPushed(childProcess__namespace.execSync(`cd "${path}" && git log origin/${gitBranch}`, { stdio: "pipe" }).toString());
                 }
                 catch (e) {
                     isPush = isPushed(e.message);

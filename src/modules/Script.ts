@@ -20,6 +20,7 @@ export enum TypeReplacer {
 }
 
 export const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasaby-cli_artifacts"];
+const LINE_SEPARATOR = "=".repeat(75);
 
 export class Script {
   private replacer: Replacer = new Replacer();
@@ -28,6 +29,13 @@ export class Script {
     [name: string]: TCustomCb | undefined;
   } = {};
 
+  /**
+   *
+   * @param replace Конфиг для замены
+   * @param newFileContent Содержимое файла
+   * @param newPath Текущая директория, чтобы понимать в каком контексте идет обработка
+   * @returns
+   */
   private _controlsReplace(replace: IReplace, newFileContent: string, newPath: string) {
     const moduleName = replace.module;
     replace.controls.forEach((control) => {
@@ -49,6 +57,12 @@ export class Script {
     return newFileContent;
   }
 
+  /**
+   *
+   * @param replace Конфиг для замены
+   * @param newFileContent Содержимое
+   * @returns
+   */
   private _optionsReplace(replace: IReplaceOpt, newFileContent: string) {
     return this.replacer.replaceOptions(newFileContent, replace);
   }
@@ -78,9 +92,7 @@ export class Script {
         // На случай если нет прав на чтение или запись в директорию
         try {
           const fileSize = FileUtils.fileSize(newPath, "mb");
-
-          // @ts-ignore
-          if (fileSize < param.maxFileSize) {
+          if (fileSize < (param.maxFileSize as number)) {
             const fileContent = FileUtils.read(newPath);
             let newFileContent = fileContent;
             for (const replace of param.replaces) {
@@ -93,6 +105,9 @@ export class Script {
                   break;
                 case TypeReplacer.Custom:
                   if ((replace as ICustomReplace).scriptPath) {
+                    // Могут подключить множество кастомных скриптов, для замены, но некоторые могут пересекаться.
+                    // Поэтому сохраняем скрипты, чтобы не грузить их повторно.
+                    // Возможно эта оптимизация избыточна, но пусть лучше будет.
                     const scriptPath = (replace as ICustomReplace).scriptPath as string;
                     if (!this.customScripts.hasOwnProperty(scriptPath)) {
                       if (FileUtils.isFile(scriptPath)) {
@@ -111,6 +126,8 @@ export class Script {
                       }
                     }
 
+                    // Если передали кастомный скрипт, то отрабатываем через него.
+                    // В противном случае, считаем что передана регулярка.
                     if (typeof this.customScripts[scriptPath] === "function") {
                       newFileContent = this.replacer.customScriptReplace(
                         {
@@ -122,7 +139,7 @@ export class Script {
                       );
                     }
                   } else {
-                    newFileContent = this.replacer.customReplace(newFileContent, replace as ICustomReplace);
+                    newFileContent = this.replacer.customRegReplace(newFileContent, replace as ICustomReplace);
                   }
                   break;
                 case TypeReplacer.Css:
@@ -131,42 +148,13 @@ export class Script {
               }
             }
             if (fileContent !== newFileContent) {
-              success(`Обновляю файл: ${newPath}`);
+              success(`Обновляю файл: "${newPath}"`);
               FileUtils.write(newPath, newFileContent);
-            } /* 
-            else {
-              // todo предупреждение вводит людей в ступор.
-              // На данный момент скрипт отрабатывает корректно во всех случаях.
-              // Писать более сложную проверку пока не стоит.
-              // Если вылезут проблемы, то будут доработаны юниты
-              
-              if (type === TypeReplacer.Controls) {
-                (param.replaces as IReplace[]).forEach((replace) => {
-                  if (fileContent.includes(replace.module)) {
-                    for (let i = 0; i < replace.controls.length; i++) {
-                      const findName = replace.controls[i].name;
-                      if (!findName || fileContent.includes(findName)) {
-                        this.errors.push({
-                          fileName: newPath,
-                          comment:
-                            'Найдены вхождения для модуля "' +
-                            replace.module +
-                            '", но скрипт не смог ничего сделать. Возможно можно проигнорировать это предупреждение.',
-                          date: new Date(),
-                        });
-                        break;
-                      }
-                    }
-                  }
-                });
-              }
-              
             }
-            */
           } else {
             this.addError(
               newPath,
-              `Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит огрнаничение на ${param.maxFileSize}MB.`
+              `Файл "${newPath}" весит ${fileSize}MB. Пропускаю его, так как стоит ограничение в ${param.maxFileSize}MB.`
             );
           }
         } catch (e) {
@@ -178,7 +166,7 @@ export class Script {
 
   async run<TReplacesOption>(param: IParam<TReplacesOption>, type: TypeReplacer = TypeReplacer.Controls) {
     log("script start");
-    log("=================================================================");
+    log(LINE_SEPARATOR);
     this.errors = [];
     this.replacer.clearErrors();
     await this.script(Script.getCorrectParam(param), param.path, type);
@@ -186,7 +174,7 @@ export class Script {
     if (this.errors.length) {
       this.saveLog();
     }
-    log("=================================================================");
+    log(LINE_SEPARATOR);
     log("script end");
   }
 
@@ -211,11 +199,11 @@ export class Script {
     }
     let errorContent = "";
     this.errors.forEach((error) => {
-      errorContent += "\n===========================================================================";
+      errorContent += `\n${LINE_SEPARATOR}`;
       errorContent += "\n\tДата: " + error.date;
       errorContent += "\n\tФайл: " + error.fileName;
       errorContent += "\n\tОписание: " + error.comment;
-      errorContent += "\n===========================================================================\n";
+      errorContent += `\n${LINE_SEPARATOR}\n`;
     });
     const fileName = Date.now();
     FileUtils.write(`${errorDir}/${fileName}.log`, errorContent, "w");
