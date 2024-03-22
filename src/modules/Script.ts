@@ -1,16 +1,18 @@
-import { error, log, success, warning } from "./logger";
-import { FileUtils } from "../utils/FileUtils";
-import { Replacer } from "./Replacer";
+import { error, log, success, warning } from './logger';
+import { FileUtils } from '../utils/FileUtils';
+import { Replacer } from './Replacer';
 import {
   IContext,
+  ICorrectParam,
   ICSSReplace,
   ICustomReplace,
-  TCustomCb,
   IError,
   IParam,
   IReplace,
   IReplaceOpt,
-} from "../interfaces/IConfig";
+  TCustomCb,
+  TReplace,
+} from '../interfaces/IConfig';
 
 export enum TypeReplacer {
   Controls = "controls",
@@ -36,7 +38,7 @@ export class Script {
    * @param newPath Текущая директория, чтобы понимать в каком контексте идет обработка
    * @returns
    */
-  private _controlsReplace(replace: IReplace, newFileContent: string, newPath: string) {
+  private controlsReplace(replace: IReplace, newFileContent: string, newPath: string) {
     const moduleName = replace.module;
     replace.controls.forEach((control) => {
       const controlName = control.name;
@@ -57,32 +59,14 @@ export class Script {
     return newFileContent;
   }
 
-  /**
-   *
-   * @param replace Конфиг для замены
-   * @param newFileContent Содержимое
-   * @returns
-   */
-  private _optionsReplace(replace: IReplaceOpt, newFileContent: string) {
-    return this.replacer.replaceOptions(newFileContent, replace);
-  }
-
-  static getCorrectParam<TReplacesOption>(param: IParam<TReplacesOption>): IParam<TReplacesOption> {
-    return {
-      path: param.path,
-      replaces: param.replaces,
-      maxFileSize: param.maxFileSize ?? 50,
-    };
-  }
-
   private async script<TReplacesOption>(
-    param: IParam<TReplacesOption>,
-    path: string,
-    type: TypeReplacer = TypeReplacer.Controls
+      param: ICorrectParam<TReplacesOption>,
+      path: string,
+      type: TypeReplacer = TypeReplacer.Controls,
   ) {
     const dirs = FileUtils.getDirs(path);
     for (const dir of dirs) {
-      const newPath = path + "/" + dir;
+      const newPath = `${path}/${dir}`;
       if (EXCLUDE_DIRS.includes(dir)) {
         continue;
       }
@@ -92,16 +76,16 @@ export class Script {
         // На случай если нет прав на чтение или запись в директорию
         try {
           const fileSize = FileUtils.fileSize(newPath, "mb");
-          if (fileSize < (param.maxFileSize as number)) {
+          if (fileSize < param.maxFileSize) {
             const fileContent = FileUtils.read(newPath);
             let newFileContent = fileContent;
             for (const replace of param.replaces) {
               switch (type) {
                 case TypeReplacer.Controls:
-                  newFileContent = this._controlsReplace(replace as IReplace, newFileContent, newPath);
+                  newFileContent = this.controlsReplace(replace as IReplace, newFileContent, newPath);
                   break;
                 case TypeReplacer.Options:
-                  newFileContent = this._optionsReplace(replace as IReplaceOpt, newFileContent);
+                  newFileContent = this.replacer.replaceOptions(newFileContent, replace as IReplaceOpt);
                   break;
                 case TypeReplacer.Custom:
                   if ((replace as ICustomReplace).scriptPath) {
@@ -127,7 +111,7 @@ export class Script {
                     }
 
                     // Если передали кастомный скрипт, то отрабатываем через него.
-                    // В противном случае, считаем что передана регулярка.
+                    // В противном случае считаем что передана регулярка.
                     if (typeof this.customScripts[scriptPath] === "function") {
                       newFileContent = this.replacer.customScriptReplace(
                         {
@@ -165,7 +149,7 @@ export class Script {
   }
 
   async run<TReplacesOption>(param: IParam<TReplacesOption>, type: TypeReplacer = TypeReplacer.Controls) {
-    log("script start");
+    log('script start');
     log(LINE_SEPARATOR);
     this.errors = [];
     this.replacer.clearErrors();
@@ -175,7 +159,7 @@ export class Script {
       this.saveLog();
     }
     log(LINE_SEPARATOR);
-    log("script end");
+    log('script end');
   }
 
   protected addError(fileName: string, msg: string, isError: boolean = false) {
@@ -189,24 +173,35 @@ export class Script {
       fileName,
       comment: msg,
       date: new Date(),
+      isError,
     });
   }
 
   private saveLog() {
-    const errorDir = "./errors";
+    const errorDir = './errors';
     if (!FileUtils.isDir(errorDir)) {
       FileUtils.mkDir(errorDir);
     }
-    let errorContent = "";
+    let errorContent = '';
     this.errors.forEach((error) => {
       errorContent += `\n${LINE_SEPARATOR}`;
-      errorContent += "\n\tДата: " + error.date;
-      errorContent += "\n\tФайл: " + error.fileName;
-      errorContent += "\n\tОписание: " + error.comment;
+      errorContent += `\n\tДата: ${error.date}`;
+      errorContent += `\n\tТип: ${error.isError ? 'Ошибка' : 'Предупреждение'}`;
+      errorContent += `\n\tФайл: ${error.fileName}`;
+      errorContent += `\n\tОписание: ${error.comment}`;
       errorContent += `\n${LINE_SEPARATOR}\n`;
     });
     const fileName = Date.now();
-    FileUtils.write(`${errorDir}/${fileName}.log`, errorContent, "w");
-    warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorDir}/${fileName}.log`);
+    const errorFile = `${errorDir}/${fileName}.log`;
+    FileUtils.write(errorFile, errorContent, 'w');
+    warning(`При выполнении скрипта были обнаружены ошибки. Подробнее в: ${errorFile}`);
+  }
+
+  static getCorrectParam<TReplacesOption extends TReplace = TReplace>(param: IParam<TReplacesOption>): ICorrectParam<TReplacesOption> {
+    return {
+      path: param.path,
+      replaces: param.replaces,
+      maxFileSize: param.maxFileSize ?? 50,
+    };
   }
 }

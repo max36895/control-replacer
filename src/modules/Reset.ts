@@ -1,8 +1,8 @@
-import * as childProcess from "child_process";
-import { executeInRep } from "../utils/executeInRep";
+import * as childProcess from 'child_process';
+import { executeInRep } from '../utils/executeInRep';
 
 /**
- * Откат правок в репозитории. Используется если скрипт по полной налажал, либо запушен с некорректным конфигом
+ * Откат правок в репозитории. Используется если скрипт по полной накосячил, либо запушен с некорректным конфигом
  * @param dir
  */
 export function resetGit(dir: string): void {

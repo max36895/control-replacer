@@ -2,6 +2,10 @@ export interface IContext {
   thisContext: string;
 }
 
+export interface IPath {
+  path: string;
+}
+
 export interface IControl {
   name: string;
   newName?: string;
@@ -21,8 +25,7 @@ export interface ICustomScriptResult {
   error?: string;
 }
 
-export interface ICustomScriptParam {
-  path: string;
+export interface ICustomScriptParam extends IPath {
   file: string;
   fileContent: string;
 }
@@ -48,20 +51,15 @@ export interface IReplace {
   newModule?: string;
 }
 
-export type IParamOptions<T> = T extends IReplace
-  ? IReplace
-  : T extends IReplaceOpt
-  ? IReplaceOpt
-  : T extends ICSSReplace
-  ? ICSSReplace
-  : T extends ICustomReplace
-  ? ICustomReplace
-  : unknown;
+export type TReplace = IReplace | IReplaceOpt | ICSSReplace | ICustomReplace | unknown;
 
-export interface IParam<R> {
-  path: string;
-  replaces: IParamOptions<R>[];
+export interface IParam<T extends TReplace = TReplace> extends IPath {
+  replaces: T[];
   maxFileSize?: number;
+}
+
+export interface ICorrectParam<R extends TReplace = TReplace> extends IParam<R> {
+  maxFileSize: number;
 }
 
 export interface IConfig {
@@ -74,6 +72,7 @@ export interface IConfig {
 
 export interface IError {
   date: Date;
+  isError: boolean;
   fileName: string;
   comment: string;
 }

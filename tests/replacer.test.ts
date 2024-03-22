@@ -1,10 +1,10 @@
-import { IContext, ICSSReplace, IParam, IReplace, IReplaceOpt } from "../src/interfaces/IConfig";
-import { Replacer } from "../src/modules/Replacer";
-import { Script } from "../src/modules/Script";
+import { IContext, ICorrectParam, ICSSReplace, IReplace, IReplaceOpt, TReplace } from '../src/interfaces/IConfig';
+import { Replacer } from '../src/modules/Replacer';
+import { Script } from '../src/modules/Script';
 
 const replaceControl = [
   {
-    name: "rename multiline import for util",
+    name: 'rename multiline import for util',
     start: `import {
     first,
     myUtil,
@@ -126,11 +126,11 @@ import { Test, default as Toggle } from 'Controls/Toggle';
     end: `import { View } from 'Controls/Tumbler';\nimport { default as Toggle } from 'Controls/Toggle';`,
   },
   {
-    name: " full rename",
+    name: ' full rename',
     start: `import {Toggle,Tumbler} from 'Controls/toggle';
-            return <Toggle/><Tumbler></Tumbler><Toggle></Toggle><Tumbler/><Tumbler {...props}/>`,
+            return <Toggle/><Tumbler></Tumbler><Toggle></Toggle><Tumbler /><Tumbler {...props}/>`,
     end: `import { View } from 'Controls/Tumbler';\nimport { default as Toggle } from 'Controls/Toggle';
-            return <Toggle/><View></View><Toggle></Toggle><View/><View {...props}/>`,
+            return <Toggle/><View></View><Toggle></Toggle><View /><View {...props}/>`,
   },
   {
     name: "rename control in text",
@@ -159,7 +159,7 @@ import {Button} from 'Controls/buttons';
 import {Async} from 'Controls/Async';
         export default function Control(props: object){
             return (<>
-                <Button caption={(<BigSeparator/>)}/>
+                <Button caption={(<BigSeparator />)}/>
                 <Async templateName="Controls/toggle:Toggle"/>
                 <Async templateName="Controls/toggle:Tumbler"/>
             </>)
@@ -171,7 +171,7 @@ import { NewButton } from 'Controls/buttons';
 import { Async } from 'Controls/Async';
         export default function Control(props: object){
             return (<>
-                <NewButton caption={(<MoreButton/>)}/>
+                <NewButton caption={(<MoreButton />)}/>
                 <Async templateName="Controls/Toggle"/>
                 <Async templateName="Controls/Tumbler:View"/>
             </>)
@@ -419,32 +419,67 @@ const removeModule = [
     end: `<Controls-Name.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Controls-Name/Input"/>`,
   },
   {
-    name: "remove module use * in wml",
-    start: `<NameView.Input/> <NameView.Not /> <NameStar.Input /> <partial template="wml!NameView/Input"/>`,
-    end: `<Controls-NameView.Input/> <Controls-NameView.Not /> <NameStar.Input /> <partial template="wml!Controls-NameView/Input"/>`,
+    name: 'remove module use * in wml',
+    start: `<NameView.Input/> <NameView.Not /> <NameStar.Input /> <partial template='wml!NameView/Input'/>`,
+    end: `<Controls-NameView.Input/> <Controls-NameView.Not /> <NameStar.Input /> <partial template='wml!Controls-NameView/Input'/>`,
   },
   {
-    name: "remove module and name used *",
-    start: `<Name.Input/> <NameView.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Name/Input"/>
-    <NameView.Input/> <Name.Input/> <NameView.Not /> <NameStar.Input /> <partial template="wml!NameView/Input"/>`,
-    end: `<Controls-Name.Input/> <Controls-NameView.Input/> <Name.Not /> <NameStar.Input /> <partial template="wml!Controls-Name/Input"/>
-    <Controls-NameView.Input/> <Controls-Name.Input/> <Controls-NameView.Not /> <NameStar.Input /> <partial template="wml!Controls-NameView/Input"/>`,
+    name: 'remove module and name used *',
+    start: `<Name.Input/> <NameView.Input/> <Name.Not /> <NameStar.Input /> <partial template='wml!Name/Input'/>
+    <NameView.Input/> <Name.Input/> <NameView.Not /> <NameStar.Input /> <partial template='wml!NameView/Input'/>`,
+    end: `<Controls-Name.Input/> <Controls-NameView.Input/> <Name.Not /> <NameStar.Input /> <partial template='wml!Controls-Name/Input'/>
+    <Controls-NameView.Input/> <Controls-Name.Input/> <Controls-NameView.Not /> <NameStar.Input /> <partial template='wml!Controls-NameView/Input'/>`,
   },
 ];
 
-describe("Replacer", () => {
-  describe("replacer control", () => {
+function runReplaces<TParam extends ICorrectParam<TCbReplace>, TCbReplace = TReplace>(param: TParam, cb: (replace: TCbReplace) => void) {
+  param.replaces.forEach((replace) => {
+    cb(replace);
+  });
+}
+
+function runControlReplaces(param: ICorrectParam<IReplace>, replacer: Replacer, test: { start: string, end: string }) {
+  let content = test.start;
+  runReplaces(param, (replace: IReplace) => {
+    const moduleName = replace.module;
+    replace.controls.forEach((control) => {
+      const controlName = control.name;
+      if (control.newName || control.newModuleName) {
+        let newControlName = control.newName;
+        if (typeof newControlName === 'undefined') {
+          newControlName = controlName;
+        }
+        let newModuleName = control.newModuleName;
+        if (typeof newModuleName === 'undefined') {
+          newModuleName = moduleName;
+        }
+        content = replacer.replaceControls(content, {
+          controlName,
+          newControlName,
+          moduleName,
+          newModuleName,
+          newModule: replace.newModule,
+          thisContext: 'test',
+        });
+      }
+    });
+  });
+  expect(content).toEqual(test.end);
+}
+
+describe('Replacer', () => {
+  describe('replacer control', () => {
     const replacer = new Replacer();
-    const param: IParam<IReplace> = Script.getCorrectParam({
-      path: ".\\test",
+    const param = Script.getCorrectParam<IReplace>({
+      path: '.\\test',
       replaces: [
         {
-          module: "Controls/dropdown",
+          module: 'Controls/dropdown',
           controls: [
             {
-              name: "Combobox",
-              newName: "",
-              newModuleName: "Controls/ComboBox",
+              name: 'Combobox',
+              newName: '',
+              newModuleName: 'Controls/ComboBox',
             },
           ],
         },
@@ -520,68 +555,43 @@ describe("Replacer", () => {
           ],
         },
         {
-          module: "Controls/my/scroll",
+          module: 'Controls/my/scroll',
           controls: [
             {
-              name: "Button",
-              newName: "",
-              newModuleName: "Controls-buttons/Button",
+              name: 'Button',
+              newName: '',
+              newModuleName: 'Controls-buttons/Button',
             },
           ],
         },
       ],
-    }) as IParam<IReplace>;
+    });
 
     replaceControl.forEach((test) => {
       it(`replacer: ${test.name}`, () => {
-        let content = test.start;
-        param.replaces.forEach((replace) => {
-          const moduleName = replace.module;
-          replace.controls.forEach((control) => {
-            const controlName = control.name;
-            if (control.newName || control.newModuleName) {
-              let newControlName = control.newName;
-              if (typeof newControlName === "undefined") {
-                newControlName = controlName;
-              }
-              let newModuleName = control.newModuleName;
-              if (typeof newModuleName === "undefined") {
-                newModuleName = moduleName;
-              }
-              content = replacer.replaceControls(content, {
-                controlName,
-                newControlName,
-                moduleName,
-                newModuleName,
-                newModule: replace.newModule,
-                thisContext: "test",
-              });
-            }
-          });
-        });
-        expect(content).toEqual(test.end);
+        runControlReplaces(param, replacer, test);
       });
     });
   });
 
   describe("replacer options", () => {
     const replacer = new Replacer();
-    const param: IParam<IReplaceOpt> = Script.getCorrectParam({
-      path: ".\\test",
+    const param = Script.getCorrectParam<IReplaceOpt>({
+      path: '.\\test',
       replaces: [
         {
-          thisOpt: "myClass",
-          newOpt: "className",
-          module: "Controls/toggle",
-          control: "Toggle",
+          thisOpt: 'myClass',
+          newOpt: 'className',
+          module: 'Controls/toggle',
+          control: 'Toggle',
         },
       ],
-    }) as IParam<IReplaceOpt>;
+    });
 
     replaceOptions.forEach((test) => {
       it(`replacer: ${test.name}`, () => {
         let content = test.start;
-        param.replaces.forEach((replace) => {
+        runReplaces<ICorrectParam<IReplaceOpt>, IReplaceOpt>(param, (replace) => {
           content = replacer.replaceOptions(content, replace);
         });
         expect(content).toEqual(test.end);
@@ -591,36 +601,36 @@ describe("Replacer", () => {
 
   describe("replacer css", () => {
     const replacer = new Replacer();
-    const param: IParam<ICSSReplace & IContext> = Script.getCorrectParam({
-      path: ".\\test",
+    const param = Script.getCorrectParam({
+      path: '.\\test',
       replaces: [
         {
           isRemove: false,
-          varName: "--var1",
-          newVarName: "--varNew",
+          varName: '--var1',
+          newVarName: '--varNew',
         },
         {
           isRemove: true,
-          varName: "--remove",
-          newVarName: "--varNew",
+          varName: '--remove',
+          newVarName: '--varNew',
         },
         {
           isRemove: false,
-          varName: ".myClassName",
-          newVarName: ".myClassNameNew",
+          varName: '.myClassName',
+          newVarName: '.myClassNameNew',
         },
         {
           isRemove: true,
-          varName: ".removeClassName",
-          newVarName: "",
+          varName: '.removeClassName',
+          newVarName: '',
         },
       ],
-    }) as IParam<ICSSReplace & IContext>;
+    });
 
     replaceCSS.forEach((test) => {
       it(`replacer: ${test.name}`, () => {
         let content = test.start;
-        param.replaces.forEach((replace) => {
+        runReplaces(param, (replace) => {
           content = replacer.cssReplace(content, replace as ICSSReplace & IContext);
         });
         expect(content).toEqual(test.end);
@@ -630,58 +640,33 @@ describe("Replacer", () => {
 
   describe("remove control", () => {
     const replacer = new Replacer();
-    const param: IParam<IReplace> = Script.getCorrectParam({
-      path: ".\\test",
+    const param = Script.getCorrectParam<IReplace>({
+      path: '.\\test',
       replaces: [
         {
-          module: "Name/Input",
+          module: 'Name/Input',
           controls: [
             {
-              name: "*",
-              newModuleName: "Controls-Name/Input",
+              name: '*',
+              newModuleName: 'Controls-Name/Input',
             },
           ],
         },
         {
-          module: "NameView/*",
+          module: 'NameView/*',
           controls: [
             {
-              name: "",
-              newModuleName: "Controls-NameView/*",
+              name: '',
+              newModuleName: 'Controls-NameView/*',
             },
           ],
         },
       ],
-    }) as IParam<IReplace>;
+    });
 
     removeModule.forEach((test) => {
       it(`replacer: ${test.name}`, () => {
-        let content = test.start;
-        param.replaces.forEach((replace) => {
-          const moduleName = replace.module;
-          replace.controls.forEach((control) => {
-            const controlName = control.name;
-            if (control.newName || control.newModuleName) {
-              let newControlName = control.newName;
-              if (typeof newControlName === "undefined") {
-                newControlName = controlName;
-              }
-              let newModuleName = control.newModuleName;
-              if (typeof newModuleName === "undefined") {
-                newModuleName = moduleName;
-              }
-              content = replacer.replaceControls(content, {
-                controlName,
-                newControlName,
-                moduleName,
-                newModuleName,
-                newModule: replace.newModule,
-                thisContext: "test",
-              });
-            }
-          });
-        });
-        expect(content).toEqual(test.end);
+        runControlReplaces(param, replacer, test);
       });
     });
   });

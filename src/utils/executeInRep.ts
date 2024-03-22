@@ -1,5 +1,5 @@
-import { EXCLUDE_DIRS } from "../modules/Script";
-import { FileUtils } from "./FileUtils";
+import { EXCLUDE_DIRS } from '../modules/Script';
+import { FileUtils } from './FileUtils';
 
 const REP_FILES = ["README.md", "package.json", ".gitignore"];
 
