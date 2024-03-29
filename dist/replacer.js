@@ -25,16 +25,16 @@ function log(str) {
     console.log(str);
 }
 function success(str) {
-    console.log("\x1b[32m", str, "\x1b[0m");
+    console.log('\x1b[32m', str, '\x1b[0m');
 }
 function warning(str) {
-    console.log("\x1b[33m", str, "\x1b[0m");
+    console.log('\x1b[33m', str, '\x1b[0m');
 }
 function error(str) {
-    console.log("\x1b[31m", str, "\x1b[0m");
+    console.log('\x1b[31m', str, '\x1b[0m');
 }
 
-const fs = require("fs");
+const fs = require('fs');
 const KB = 1024;
 const MB = KB * 1024;
 const GB = MB * 1024;
@@ -61,27 +61,27 @@ class FileUtils {
         fs.mkdirSync(path);
     }
     static read(fileName) {
-        return fs.readFileSync(fileName, "utf-8");
+        return fs.readFileSync(fileName, 'utf-8');
     }
-    static write(fileName, fileContent, mode = "w") {
-        if (mode === "w") {
+    static write(fileName, fileContent, mode = 'w') {
+        if (mode === 'w') {
             fs.writeFileSync(fileName, fileContent);
         }
         else {
             fs.appendFileSync(fileName, fileContent);
         }
     }
-    static fileSize(path, prefix = "mb") {
+    static fileSize(path, prefix = 'mb') {
         const stat = fs.statSync(path);
         let size = stat.size;
         switch (prefix) {
-            case "kb":
+            case 'kb':
                 size /= KB;
                 break;
-            case "mb":
+            case 'mb':
                 size /= MB;
                 break;
-            case "gb":
+            case 'gb':
                 size /= GB;
                 break;
         }
@@ -94,26 +94,28 @@ class FileUtils {
 
 const SEPARATORS = [
     {
-        lib: "/",
-        control: ":",
+        lib: '/',
+        control: ':',
     },
     {
-        lib: "/",
-        control: "/",
+        lib: '/',
+        control: '/',
     },
     {
-        lib: ".",
-        control: ":",
+        lib: '.',
+        control: ':',
     },
     {
-        lib: ".",
-        control: ".",
+        lib: '.',
+        control: '.',
     },
 ];
 class Replacer {
     errors = [];
     static getImportMatch(moduleName, str) {
-        return [...str.matchAll(new RegExp(`^import(\\n|[^('|")]+?)from ['|"]${moduleName}['|"];?$`, 'umg'))];
+        return [
+            ...str.matchAll(new RegExp(`^import(\\n|[^('|")]+?)from ['|"]${moduleName}['|"];?$`, 'umg')),
+        ];
     }
     static addedInImport(str, match, importReplacer) {
         if (match.length) {
@@ -156,9 +158,15 @@ class Replacer {
                 }
             });
         }
-        const path = config.module.split("/");
+        const path = config.module.split('/');
         SEPARATORS.forEach((separator) => {
-            str = str.replace(new RegExp('(' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg, 'g'), `$1${config.newOpt}$2`);
+            str = str.replace(new RegExp('(' +
+                path.join(separator.lib) +
+                separator.control +
+                config.control +
+                beforeReg +
+                config.thisOpt +
+                afterReg, 'g'), `$1${config.newOpt}$2`);
         });
         return str;
     }
@@ -200,12 +208,12 @@ class Replacer {
         else {
             find = `\\b${find}\\b`;
         }
-        const replace = isClassName ? config.newVarName.replace(".", "") : config.newVarName;
+        const replace = isClassName ? config.newVarName.replace('.', '') : config.newVarName;
         return str.replace(new RegExp(`(${find})`, 'g'), replace);
     }
     customRegReplace(str, config) {
         if (config.reg) {
-            return str.replace(new RegExp(config.reg, config.flag || "g"), config.replace);
+            return str.replace(new RegExp(config.reg, config.flag || 'g'), config.replace);
         }
         return str;
     }
@@ -241,19 +249,19 @@ class Replacer {
                                 importsList: names,
                             };
                             if (value[i] === controlName) {
-                                if (value[i + 1] === "as") {
+                                if (value[i + 1] === 'as') {
                                     path.name = value[i + 2];
                                     path.control = controlName;
                                 }
                                 else {
-                                    if (value[i - 1] !== "as") {
+                                    if (value[i - 1] !== 'as') {
                                         path.name = controlName;
                                         path.control = controlName;
                                     }
                                 }
                             }
-                            else if (value[i] === "*") {
-                                if (value[i + 1] === "as") {
+                            else if (value[i] === '*') {
+                                if (value[i + 1] === 'as') {
                                     path.control = controlName;
                                     path.lib = value[i + 2];
                                 }
@@ -276,14 +284,14 @@ class Replacer {
         const moduleNameReg = new RegExp(`[\"']${config.moduleName}[\"']`);
         const match = Replacer.getImportMatch(config.newModuleName, str);
         if ((importReplacer.importsList.length === 1 && !match.length) || config.newModule) {
-            str = str.replace(moduleNameReg, `'${(config.newModule || config.newModuleName)}'`);
+            str = str.replace(moduleNameReg, `'${config.newModule || config.newModuleName}'`);
         }
         else {
             const imports = [];
-            let startSeparator = "";
-            let endSeparator = "";
+            let startSeparator = '';
+            let endSeparator = '';
             if (importReplacer.name) {
-                importReplacer.importNames.split(",").forEach((imp) => {
+                importReplacer.importNames.split(',').forEach((imp) => {
                     if (!new RegExp(`\\b${importReplacer.control}\\b`).test(imp)) {
                         imports.push(imp);
                     }
@@ -303,7 +311,9 @@ class Replacer {
                 else {
                     let newImport = `\'${config.moduleName}\'`;
                     if (config.controlName) {
-                        newImport += `;\nimport {${importReplacer.control}${importReplacer.control !== importReplacer.name ? " as " + importReplacer.name : ""}} from '${config.newModuleName}';`;
+                        newImport += `;\nimport {${importReplacer.control}${importReplacer.control !== importReplacer.name
+                            ? ' as ' + importReplacer.name
+                            : ''}} from '${config.newModuleName}';`;
                     }
                     str = str.replace(moduleNameReg, newImport);
                     str = str.replace(';;', ';');
@@ -324,12 +334,12 @@ class Replacer {
     }
     importReplacer(str, config) {
         const { controlName, newControlName, moduleName } = config;
-        if (controlName === "*") {
-            return str.replace(new RegExp(`[\"']${moduleName}[\"']`, 'g'), '\'' + config.newModuleName + '\'');
+        if (controlName === '*') {
+            return str.replace(new RegExp(`[\"']${moduleName}[\"']`, 'g'), "'" + config.newModuleName + "'");
         }
-        if (moduleName[moduleName.length - 1] === "*") {
-            const correctModuleName = moduleName.replace("/*", "");
-            const correctNewModuleName = config.newModuleName.replace("/*", "");
+        if (moduleName[moduleName.length - 1] === '*') {
+            const correctModuleName = moduleName.replace('/*', '');
+            const correctNewModuleName = config.newModuleName.replace('/*', '');
             return str.replace(new RegExp('(["\'])' + correctModuleName, 'g'), '$1' + correctNewModuleName);
         }
         const importsReplacer = this.importParse(str, controlName, moduleName);
@@ -358,7 +368,9 @@ class Replacer {
                         }
                         else {
                             const replaceReg = new RegExp(`\\b${importReplacer.control}\\b`);
-                            const rValue = importReplacer.name === importReplacer.control ? `default as ${controlName}` : 'default';
+                            const rValue = importReplacer.name === importReplacer.control
+                                ? `default as ${controlName}`
+                                : 'default';
                             const updateImportReplacer = this.importParse(value, importReplacer.control, config.newModuleName);
                             if (updateImportReplacer && updateImportReplacer.length) {
                                 value = value.replace(new RegExp(updateImportReplacer[0].fullImport), updateImportReplacer[0].fullImport.replace(replaceReg, rValue));
@@ -374,7 +386,7 @@ class Replacer {
                         }
                     }
                     else {
-                        value = value.replace(new RegExp(importReplacer.lib + "\\." + importReplacer.control, "g"), importReplacer.lib + "." + newControlName);
+                        value = value.replace(new RegExp(importReplacer.lib + '\\.' + importReplacer.control, 'g'), importReplacer.lib + '.' + newControlName);
                     }
                 }
             });
@@ -382,18 +394,18 @@ class Replacer {
                 const reg = /import( type|)(\\n|[^('|")]+?)from ['|"][^('|")]+['|"];?/gmu;
                 const imports = [...value.matchAll(reg)];
                 imports.forEach((imp) => {
-                    if (imp[2] && imp[0].includes("{") && imp[0].includes("}")) {
-                        if (imp[2].includes("\n")) {
+                    if (imp[2] && imp[0].includes('{') && imp[0].includes('}')) {
+                        if (imp[2].includes('\n')) {
                             return;
                         }
                         let importName = imp[2]
                             .trim()
-                            .replace(/[{|}]/g, "")
-                            .split(",")
+                            .replace(/[{|}]/g, '')
+                            .split(',')
                             .map((res) => {
                             return res.trim();
                         })
-                            .join(", ");
+                            .join(', ');
                         const replaceValue = imp[0].replace(imp[2], ` { ${importName} } `);
                         value = value.replace(imp[0], replaceValue);
                     }
@@ -405,26 +417,28 @@ class Replacer {
     }
     textReplacer(str, config) {
         const { controlName, newControlName, moduleName, newModuleName } = config;
-        const path = moduleName.split("/");
-        const newPath = newModuleName.split("/");
+        const path = moduleName.split('/');
+        const newPath = newModuleName.split('/');
         let newName = newControlName;
-        if (newName === "") {
+        if (newName === '') {
             newName = newPath.at(-1);
             newPath.pop();
         }
         SEPARATORS.forEach((separator) => {
-            if (newName === "*") {
-                if (separator.control === ":") {
+            if (newName === '*') {
+                if (separator.control === ':') {
                     return;
                 }
             }
-            if (newName === "*" || moduleName[moduleName.length - 1] === "*") {
+            if (newName === '*' || moduleName[moduleName.length - 1] === '*') {
                 const correctPath = moduleName.replace('/*', '').split('/');
                 const correctNewPath = newModuleName.replace('/*', '').split('/');
                 str = str.replace(new RegExp('(<|"|\'|/|!)' + correctPath.join(separator.lib), 'g'), '$1' + correctNewPath.join(separator.lib));
             }
             else {
-                str = str.replace(new RegExp(path.join(separator.lib) + separator.control + controlName, 'g'), newPath.join(separator.lib) + (newControlName ? separator.control : separator.lib) + newName);
+                str = str.replace(new RegExp(path.join(separator.lib) + separator.control + controlName, 'g'), newPath.join(separator.lib) +
+                    (newControlName ? separator.control : separator.lib) +
+                    newName);
             }
         });
         return str;
@@ -453,8 +467,8 @@ var TypeReplacer;
     TypeReplacer["Custom"] = "custom";
     TypeReplacer["Css"] = "css";
 })(TypeReplacer || (TypeReplacer = {}));
-const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasaby-cli_artifacts"];
-const LINE_SEPARATOR = "=".repeat(75);
+const EXCLUDE_DIRS = ['node_modules', '.git', '.idea', 'build-ui', 'wasaby-cli_artifacts'];
+const LINE_SEPARATOR = '='.repeat(75);
 class Script {
     replacer = new Replacer();
     errors = [];
@@ -490,7 +504,7 @@ class Script {
             }
             else {
                 try {
-                    const fileSize = FileUtils.fileSize(newPath, "mb");
+                    const fileSize = FileUtils.fileSize(newPath, 'mb');
                     if (fileSize < param.maxFileSize) {
                         const fileContent = FileUtils.read(newPath);
                         let newFileContent = fileContent;
@@ -504,12 +518,14 @@ class Script {
                                     break;
                                 case TypeReplacer.Custom:
                                     if (replace.scriptPath) {
-                                        const scriptPath = replace.scriptPath;
+                                        const scriptPath = replace
+                                            .scriptPath;
                                         if (!this.customScripts.hasOwnProperty(scriptPath)) {
                                             if (FileUtils.isFile(scriptPath)) {
                                                 const res = await import(scriptPath);
                                                 this.customScripts[scriptPath] = res.run;
-                                                if (typeof this.customScripts[scriptPath] !== "function") {
+                                                if (typeof this.customScripts[scriptPath] !==
+                                                    'function') {
                                                     this.addError(scriptPath, `В файле "${scriptPath}" отсутствует метод run. См доку на github.`, true);
                                                 }
                                             }
@@ -518,7 +534,7 @@ class Script {
                                                 this.customScripts[scriptPath] = undefined;
                                             }
                                         }
-                                        if (typeof this.customScripts[scriptPath] === "function") {
+                                        if (typeof this.customScripts[scriptPath] === 'function') {
                                             newFileContent = this.replacer.customScriptReplace({
                                                 path,
                                                 file: dir,
@@ -606,7 +622,7 @@ class Script {
     }
 }
 
-const REP_FILES = ["README.md", "package.json", ".gitignore"];
+const REP_FILES = ['README.md', 'package.json', '.gitignore'];
 function executeInRep(path, cb) {
     const dirFiles = FileUtils.getDirs(path);
     let isRep = false;
@@ -621,7 +637,7 @@ function executeInRep(path, cb) {
     }
     else {
         dirFiles.forEach((dirFile) => {
-            const newPath = path + "/" + dirFile;
+            const newPath = path + '/' + dirFile;
             if (EXCLUDE_DIRS.includes(dirFile)) {
                 return;
             }
@@ -664,7 +680,11 @@ function fixCommit(dir) {
             if (gitBranch) {
                 let isPush;
                 try {
-                    isPush = isPushed(childProcess__namespace.execSync(`cd "${path}" && git log origin/${gitBranch}`, { stdio: "pipe" }).toString());
+                    isPush = isPushed(childProcess__namespace
+                        .execSync(`cd "${path}" && git log origin/${gitBranch}`, {
+                        stdio: 'pipe',
+                    })
+                        .toString());
                 }
                 catch (e) {
                     isPush = isPushed(e.message);
