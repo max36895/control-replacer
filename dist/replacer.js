@@ -158,9 +158,51 @@ class Replacer {
         }
         const path = config.module.split("/");
         SEPARATORS.forEach((separator) => {
-            str = str.replace(new RegExp('(' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg, 'g'), `$1${config.newOpt}$2`);
+            str = str.replace(new RegExp('(<' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg, 'g'), `$1${config.newOpt}$2`);
         });
         return str;
+    }
+    findOptions(str, config, fileName) {
+        if (!fileName.match(/\.wml\b|\.js\b|\.jsx\b|\.ts\b|\.tsx\b/)) {
+            return [];
+        }
+        const importsReplacer = this.importParse(str, config.control, config.module);
+        const beforeReg = '\\b(?:\\n|[^>])+?)\\b';
+        const afterReg = '\\b((?:\\n|[^>])+?>)';
+        const results = [];
+        if (importsReplacer) {
+            importsReplacer.forEach((importReplacer) => {
+                if (importReplacer.name) {
+                    const find = str.match(new RegExp('(<\\b' + importReplacer.name + beforeReg + config.thisOpt + afterReg, 'g'));
+                    if (find) {
+                        results.push({
+                            controlName: importReplacer.name,
+                            fileName,
+                        });
+                    }
+                }
+                else {
+                    const find = str.match(new RegExp(`(<${importReplacer.lib}.${importReplacer.control}${beforeReg}${config.thisOpt}${afterReg}`));
+                    if (find) {
+                        results.push({
+                            controlName: importReplacer.name,
+                            fileName,
+                        });
+                    }
+                }
+            });
+        }
+        const path = config.module.split('/');
+        SEPARATORS.forEach((separator) => {
+            const find = str.match(new RegExp('(<' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg, 'g'));
+            if (find) {
+                results.push({
+                    controlName: config.control,
+                    fileName,
+                });
+            }
+        });
+        return results;
     }
     cssReplace(str, config) {
         const isCssVar = config.varName.indexOf('--') === 0;
@@ -452,12 +494,14 @@ var TypeReplacer;
     TypeReplacer["Options"] = "options";
     TypeReplacer["Custom"] = "custom";
     TypeReplacer["Css"] = "css";
+    TypeReplacer["Find"] = "find";
 })(TypeReplacer || (TypeReplacer = {}));
 const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasaby-cli_artifacts"];
 const LINE_SEPARATOR = "=".repeat(75);
 class Script {
     replacer = new Replacer();
     errors = [];
+    res = [];
     customScripts = {};
     controlsReplace(replace, newFileContent, newPath) {
         const moduleName = replace.module;
@@ -501,6 +545,9 @@ class Script {
                                     break;
                                 case TypeReplacer.Options:
                                     newFileContent = this.replacer.replaceOptions(newFileContent, replace);
+                                    break;
+                                case TypeReplacer.Find:
+                                    this.res = [...this.res, ...this.replacer.findOptions(newFileContent, replace, newPath)];
                                     break;
                                 case TypeReplacer.Custom:
                                     if (replace.scriptPath) {
@@ -554,11 +601,15 @@ class Script {
         log('script start');
         log(LINE_SEPARATOR);
         this.errors = [];
+        this.res = [];
         this.replacer.clearErrors();
         await this.script(Script.getCorrectParam(param), param.path, type);
         this.errors = [...this.errors, ...this.replacer.getErrors()];
         if (this.errors.length) {
             this.saveLog();
+        }
+        if (this.res.length) {
+            this.saveInfo(param.path, param.branch);
         }
         log(LINE_SEPARATOR);
         log('script end');
@@ -577,6 +628,39 @@ class Script {
             date: new Date(),
             isError,
         });
+    }
+    saveInfo(path, branch) {
+        const infoDir = './info';
+        if (!FileUtils.isDir(infoDir)) {
+            FileUtils.mkDir(infoDir);
+        }
+        let infoContent = `Найдено вхождений: ${this.res.length}`;
+        this.res.forEach((res) => {
+            const fileDir = res.fileName.replace(path + '/storage/', '');
+            const paths = fileDir.split('/');
+            let branchName;
+            if (branch) {
+                const bInfo = branch.match(/((rc-)?\d{1,2}\.)(.*)/);
+                if (bInfo) {
+                    branchName = bInfo[1] + (+bInfo[3] % 1000 ? bInfo[3] : (Number(bInfo[3]) + 100));
+                }
+                else {
+                    branchName = branch;
+                }
+            }
+            let rep = `${paths[0]}/${paths[1]}/-/tree${branchName}`;
+            for (let i = 2; i < paths.length; i++) {
+                rep += '/' + paths[i];
+            }
+            infoContent += `\n${LINE_SEPARATOR}`;
+            infoContent += `\n\tКонтрол: ${res.controlName}`;
+            infoContent += `\n\tФайл: ${res.fileName}`;
+            infoContent += `\n\tgit: https://git.sbis.ru/${rep}`;
+            infoContent += `\n${LINE_SEPARATOR}\n`;
+        });
+        const fileName = Date.now();
+        const infoFile = `${infoDir}/${fileName}.log`;
+        FileUtils.write(infoFile, infoContent, 'w');
     }
     saveLog() {
         const errorDir = './errors';
@@ -684,6 +768,7 @@ var TYPE;
     TYPE["CSS"] = "cssReplace";
     TYPE["RESET_GIT"] = "resetGit";
     TYPE["FIX_COMMIT"] = "fixCommit";
+    TYPE["FIND"] = "find";
 })(TYPE || (TYPE = {}));
 const DEFAULT_LINE_LENGTH = 70;
 const script = new Script();
@@ -789,6 +874,9 @@ function getType(value) {
     else if (value === TYPE.CUSTOM) {
         return TypeReplacer.Custom;
     }
+    else if (value === TYPE.FIND) {
+        return TypeReplacer.Find;
+    }
     return TypeReplacer.Css;
 }
 function startScript(configFile, cb) {
@@ -821,6 +909,7 @@ if (argv[2]) {
             case TYPE.OPTION:
             case TYPE.CUSTOM:
             case TYPE.CSS:
+            case TYPE.FIND:
                 startScript(argv[3], async (param) => {
                     const type = getType(argv[2]);
                     if (param.path) {

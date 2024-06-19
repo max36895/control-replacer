@@ -56,6 +56,7 @@ export type TReplace = IReplace | IReplaceOpt | ICSSReplace | ICustomReplace | u
 export interface IParam<T extends TReplace = TReplace> extends IPath {
   replaces: T[];
   maxFileSize?: number;
+  branch?: string;
 }
 
 export interface ICorrectParam<R extends TReplace = TReplace> extends IParam<R> {
@@ -75,4 +76,9 @@ export interface IError {
   isError: boolean;
   fileName: string;
   comment: string;
+}
+
+export interface IResult {
+  controlName: string;
+  fileName: string;
 }

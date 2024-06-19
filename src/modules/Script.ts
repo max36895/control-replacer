@@ -10,15 +10,17 @@ import {
   IParam,
   IReplace,
   IReplaceOpt,
+  IResult,
   TCustomCb,
   TReplace,
 } from '../interfaces/IConfig';
 
 export enum TypeReplacer {
-  Controls = "controls",
-  Options = "options",
-  Custom = "custom",
-  Css = "css",
+  Controls = 'controls',
+  Options = 'options',
+  Custom = 'custom',
+  Find = 'find',
+  Css = 'css',
 }
 
 export const EXCLUDE_DIRS = ["node_modules", ".git", ".idea", "build-ui", "wasaby-cli_artifacts"];
@@ -27,6 +29,7 @@ const LINE_SEPARATOR = "=".repeat(75);
 export class Script {
   private replacer: Replacer = new Replacer();
   private errors: IError[] = [];
+  protected res: IResult[] = [];
   private customScripts: {
     [name: string]: TCustomCb | undefined;
   } = {};
@@ -86,6 +89,9 @@ export class Script {
                   break;
                 case TypeReplacer.Options:
                   newFileContent = this.replacer.replaceOptions(newFileContent, replace as IReplaceOpt);
+                  break;
+                case TypeReplacer.Find:
+                  this.res = [...this.res, ...this.replacer.findOptions(newFileContent, replace as IReplaceOpt, newPath)];
                   break;
                 case TypeReplacer.Custom:
                   if ((replace as ICustomReplace).scriptPath) {
@@ -152,11 +158,15 @@ export class Script {
     log('script start');
     log(LINE_SEPARATOR);
     this.errors = [];
+    this.res = [];
     this.replacer.clearErrors();
     await this.script(Script.getCorrectParam(param), param.path, type);
     this.errors = [...this.errors, ...this.replacer.getErrors()];
     if (this.errors.length) {
       this.saveLog();
+    }
+    if (this.res.length) {
+      this.saveInfo(param.path, param.branch);
     }
     log(LINE_SEPARATOR);
     log('script end');
@@ -175,6 +185,39 @@ export class Script {
       date: new Date(),
       isError,
     });
+  }
+
+  private saveInfo(path: string, branch?: string) {
+    const infoDir = './info';
+    if (!FileUtils.isDir(infoDir)) {
+      FileUtils.mkDir(infoDir);
+    }
+    let infoContent = `Найдено вхождений: ${this.res.length}`;
+    this.res.forEach((res) => {
+      const fileDir = res.fileName.replace(path + '/storage/', '');
+      const paths = fileDir.split('/');
+      let branchName;
+      if (branch) {
+        const bInfo = branch.match(/((rc-)?\d{1,2}\.)(.*)/);
+        if (bInfo) {
+          branchName = bInfo[1] + (+bInfo[3] % 1000 ? bInfo[3] : (Number(bInfo[3]) + 100));
+        } else {
+          branchName = branch;
+        }
+      }
+      let rep = `${paths[0]}/${paths[1]}/-/tree${branchName}`;
+      for (let i = 2; i < paths.length; i++) {
+        rep += '/' + paths[i];
+      }
+      infoContent += `\n${LINE_SEPARATOR}`;
+      infoContent += `\n\tКонтрол: ${res.controlName}`;
+      infoContent += `\n\tФайл: ${res.fileName}`;
+      infoContent += `\n\tgit: https://git.sbis.ru/${rep}`;
+      infoContent += `\n${LINE_SEPARATOR}\n`;
+    });
+    const fileName = Date.now();
+    const infoFile = `${infoDir}/${fileName}.log`;
+    FileUtils.write(infoFile, infoContent, 'w');
   }
 
   private saveLog() {

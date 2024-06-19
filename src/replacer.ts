@@ -11,7 +11,8 @@ enum TYPE {
   CUSTOM = 'customReplace',
   CSS = 'cssReplace',
   RESET_GIT = 'resetGit',
-  FIX_COMMIT = 'fixCommit'
+  FIX_COMMIT = 'fixCommit',
+  FIND = 'find'
 }
 
 const DEFAULT_LINE_LENGTH = 70;
@@ -132,6 +133,8 @@ function getType(value: string): TypeReplacer {
     return TypeReplacer.Options;
   } else if (value === TYPE.CUSTOM) {
     return TypeReplacer.Custom;
+  } else if (value === TYPE.FIND) {
+    return TypeReplacer.Find;
   }
   return TypeReplacer.Css;
 }
@@ -163,6 +166,7 @@ if (argv[2]) {
       case TYPE.OPTION:
       case TYPE.CUSTOM:
       case TYPE.CSS:
+      case TYPE.FIND:
         startScript<IParam<IReplaceOpt | ICustomReplace | ICSSReplace>>(argv[3],
             async (param) => {
               const type: TypeReplacer = getType(argv[2]);

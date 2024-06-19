@@ -6,6 +6,7 @@ import {
   ICustomScriptParam,
   IError,
   IReplaceOpt,
+  IResult,
   TCustomCb,
 } from '../interfaces/IConfig';
 import { warning } from './logger';
@@ -130,7 +131,7 @@ export class Replacer {
       // Такой вариант немного производительнее и стабильнее чем собирать 1 большую регулярку
       str = str.replace(
           new RegExp(
-              '(' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg,
+              '(<' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg,
               'g',
           ),
           `$1${config.newOpt}$2`,
@@ -138,6 +139,55 @@ export class Replacer {
     });
 
     return str;
+  }
+
+  findOptions(str: string, config: IReplaceOpt, fileName: string): IResult[] {
+    if (!fileName.match(/\.wml\b|\.js\b|\.jsx\b|\.ts\b|\.tsx\b/)) {
+      return [];
+    }
+    const importsReplacer = this.importParse(str, config.control, config.module);
+    const beforeReg = '\\b(?:\\n|[^>])+?)\\b';
+    const afterReg = '\\b((?:\\n|[^>])+?>)';
+    const results: IResult[] = [];
+
+    if (importsReplacer) {
+      importsReplacer.forEach((importReplacer) => {
+        if (importReplacer.name) {
+          const find = str.match(new RegExp('(<\\b' + importReplacer.name + beforeReg + config.thisOpt + afterReg, 'g'));
+          if (find) {
+            results.push({
+              controlName: importReplacer.name,
+              fileName,
+            });
+          }
+        } else {
+          const find = str.match(new RegExp(`(<${importReplacer.lib}.${importReplacer.control}${beforeReg}${config.thisOpt}${afterReg}`));
+          if (find) {
+            results.push({
+              controlName: importReplacer.name,
+              fileName,
+            });
+          }
+        }
+      });
+    }
+
+    const path = config.module.split('/');
+    // Замена для wml для всех сценариев
+    SEPARATORS.forEach((separator) => {
+      // Такой вариант немного производительнее и стабильнее чем собирать 1 большую регулярку
+      const find = str.match(new RegExp(
+          '(<' + path.join(separator.lib) + separator.control + config.control + beforeReg + config.thisOpt + afterReg,
+          'g',
+      ));
+      if (find) {
+        results.push({
+          controlName: config.control,
+          fileName,
+        });
+      }
+    });
+    return results;
   }
 
   /**
