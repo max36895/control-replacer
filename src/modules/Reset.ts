@@ -6,7 +6,7 @@ import { executeInRep } from '../utils/executeInRep';
  * @param dir
  */
 export function resetGit(dir: string): void {
-  executeInRep(dir, (path) => {
-    childProcess.execSync(`cd ${path} && git reset --hard HEAD~`);
-  });
+    executeInRep(dir, (path) => {
+        childProcess.execSync(`cd ${path} && git reset --hard HEAD~`);
+    });
 }
